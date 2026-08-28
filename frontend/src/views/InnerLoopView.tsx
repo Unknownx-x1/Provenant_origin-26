@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { Decision, MarketTick } from '../ws/useLiveFeed';
 import { ValidityGauge } from '../components/ValidityGauge';
-import { EvidenceNodeCard } from '../components/EvidenceNodeCard';
 import { AuditTrail } from '../components/AuditTrail';
 import { StockMarketGraph } from '../components/StockMarketGraph';
 
@@ -31,7 +30,9 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
   const [showWhy, setShowWhy] = useState(true);
 
   // Derive stage (1: SEE, 2: DECIDE, 3: MONITOR, 4: CORRECT)
-  const currentStage = !latestDecision ? 1 : latestDecision.status === 'open' ? 3 : 4;
+  const currentStage = !latestDecision ? 1 : latestDecision.status === 'OPEN' || latestDecision.status === 'open' ? 3 : 4;
+  const allocationUsd = latestDecision?.allocation ? latestDecision.allocation * 100000 : 20000;
+  const allocationPct = latestDecision?.allocation ? latestDecision.allocation * 100 : 20;
 
   return (
     <div className="space-y-6 font-sans">
@@ -136,7 +137,7 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
 
               <div className="bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
                 <span className="text-slate-400 text-[10px] block font-sans font-semibold">POSITION ALLOCATION</span>
-                <strong className="text-emerald-600 text-base font-bold">$20,000 (20%)</strong>
+                <strong className="text-emerald-600 text-base font-bold">${allocationUsd.toLocaleString()} ({allocationPct.toFixed(0)}%)</strong>
               </div>
             </div>
           </div>
@@ -155,7 +156,7 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
           </div>
 
           {/* Contradiction & Reversal Hero Banner */}
-          {latestDecision.status !== 'open' && (
+          {(latestDecision.status === 'REVERSED' || latestDecision.status === 'REDUCED' || latestDecision.status === 'CANCELLED') && (
             <div className="bg-rose-50/80 border border-rose-200 rounded-2xl p-5 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5 text-rose-700 font-bold text-base">
@@ -163,7 +164,7 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
                   <span>Decision Invalidated — Autonomous Correction Executed</span>
                 </div>
                 <span className="bg-white text-rose-700 font-mono text-xs px-3 py-1 rounded-full font-bold uppercase border border-rose-200">
-                  Cause: Contradiction
+                  Cause: News Contradicted
                 </span>
               </div>
 
@@ -172,13 +173,13 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
                 <div className="bg-white p-3.5 rounded-xl border border-rose-200/70 shadow-2xs">
                   <span className="text-slate-400 text-[10px] font-bold block uppercase">1. CAUSE</span>
                   <p className="text-rose-700 font-semibold mt-1">
-                    {latestDecision.evidence_nodes.find(n => n.freshness !== 'FRESH')?.type || 'News Evidence'} Contradicted
+                    {latestDecision.evidence_nodes.find(n => n.contradicted || n.freshness === 'CONTRADICTED')?.headline || 'Earnings Guidance Cut (Contradicted)'}
                   </p>
                 </div>
                 <div className="bg-white p-3.5 rounded-xl border border-rose-200/70 shadow-2xs">
                   <span className="text-slate-400 text-[10px] font-bold block uppercase">2. EFFECT</span>
                   <p className="text-rose-700 font-semibold mt-1">
-                    Validity V(t) fell to <span className="font-bold font-mono">{latestDecision.validity_score.toFixed(2)}</span> (&lt; {latestDecision.validity_threshold.toFixed(2)} threshold)
+                    Validity V(t) dropped to <span className="font-bold font-mono">{latestDecision.validity_score.toFixed(2)}</span> (&lt; {latestDecision.validity_threshold.toFixed(2)} threshold)
                   </p>
                 </div>
                 <div className="bg-white p-3.5 rounded-xl border border-rose-200/70 shadow-2xs">
@@ -204,25 +205,33 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
 
             {showWhy && (
               <div className="mt-3 pt-3 border-t border-slate-200 space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 font-sans text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 font-sans text-xs">
                   {latestDecision.evidence_nodes.map((node) => (
-                    <div key={node.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
-                      <div className="text-slate-400 text-[10px] font-semibold uppercase">
-                        {node.type} ({Math.round(node.weight * 100)}%)
+                    <div key={node.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 text-[10px] font-bold uppercase">{node.type} ({Math.round(node.weight * 100)}%)</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${node.freshness === 'FRESH' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                          {node.freshness}
+                        </span>
                       </div>
-                      <div className={`font-bold mt-0.5 ${node.freshness === 'FRESH' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {node.freshness === 'FRESH' ? '✓ Fresh Evidence Signal' : '⚠ Evidence Penalty / Decay'}
+                      <div className="font-semibold text-slate-900 text-xs truncate" title={node.headline || node.value || ''}>
+                        {node.headline || node.value || node.source}
                       </div>
+                      {node.impact && (
+                        <div className="text-[10px] text-slate-500 font-mono">
+                          Impact: {node.impact}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
 
                 <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 font-sans text-xs gap-4">
                   <span className="text-slate-700 font-medium italic">
-                    "{latestDecision.explanation || `I created a BUY decision based on positive news and RSI momentum. When earnings news was contradicted, validity fell below threshold and I reversed the trade.`}"
+                    "{latestDecision.explanation || `Autonomous decision created with multi-modal evidence. Monitored continuously with adaptive threshold.`}"
                   </span>
                   <button
-                    onClick={() => onSpeak && onSpeak(latestDecision.explanation || "I reversed the position because supporting evidence was contradicted.")}
+                    onClick={() => onSpeak && onSpeak(latestDecision.explanation || "Autonomous decision verified by Decision Validity Engine.")}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 transition shrink-0"
                   >
                     <Volume2 className="w-3.5 h-3.5" />
@@ -255,8 +264,8 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
                       {latestDecision.evidence_nodes.map((node) => (
                         <div key={node.id} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex justify-between items-center">
                           <div>
-                            <div className="font-bold text-slate-900">{node.type} ({node.weight * 100}%)</div>
-                            <div className="text-[10px] text-slate-500 font-mono">{node.source}</div>
+                            <div className="font-bold text-slate-900">{node.type} ({Math.round(node.weight * 100)}%)</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{node.headline || node.source}</div>
                           </div>
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             node.freshness === 'FRESH' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -273,7 +282,7 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
                     <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2 font-mono text-xs">
                       <div className="flex justify-between"><span className="text-slate-500 font-sans">Decision ID:</span><span className="text-slate-900 font-bold">{latestDecision.decision_id}</span></div>
                       <div className="flex justify-between"><span className="text-slate-500 font-sans">Strategy ID:</span><span className="text-slate-900 font-bold">{latestDecision.strategy_template_id}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500 font-sans">Risk Score:</span><span className="text-emerald-600 font-bold">0.33 (Max 0.80)</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500 font-sans">Allocation:</span><span className="text-emerald-600 font-bold">${allocationUsd.toLocaleString()} ({allocationPct.toFixed(0)}%)</span></div>
                       <div className="flex justify-between"><span className="text-slate-500 font-sans">Capital Cap:</span><span className="text-emerald-600 font-bold">25% Max Exposure</span></div>
                       <div className="flex justify-between"><span className="text-slate-500 font-sans">Execution Slippage:</span><span className="text-slate-900 font-bold">5 bps</span></div>
                     </div>
@@ -295,3 +304,4 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
     </div>
   );
 };
+

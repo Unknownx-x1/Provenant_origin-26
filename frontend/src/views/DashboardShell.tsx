@@ -16,7 +16,7 @@ const BACKEND_URL = 'http://127.0.0.1:8000';
 
 export const DashboardShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, demoState } = useLiveFeed();
+  const { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, marketInterval, setMarketInterval, demoState } = useLiveFeed();
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window && demoState.voice_enabled) {
@@ -62,6 +62,14 @@ export const DashboardShell: React.FC = () => {
 
   const handleInjectPositiveNews = async () => {
     try {
+      await fetch(`${BACKEND_URL}/api/market/inject-news`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headline: "Apple raises Q3 guidance and beats revenue expectations",
+          sentiment: "positive"
+        })
+      });
       await fetch(`${BACKEND_URL}/api/demo/auto-step`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,6 +77,27 @@ export const DashboardShell: React.FC = () => {
       });
     } catch (e) {
       console.error('Inject positive news failed', e);
+    }
+  };
+
+  const handleInjectContradiction = async () => {
+    try {
+      await fetch(`${BACKEND_URL}/api/market/inject-news`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headline: "Apple cuts revenue guidance amid weaker iPhone demand",
+          sentiment: "negative",
+          contradicts: "latest"
+        })
+      });
+      await fetch(`${BACKEND_URL}/api/demo/auto-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phase: 5 })
+      });
+    } catch (e) {
+      console.error('Inject contradiction failed', e);
     }
   };
 
@@ -98,7 +127,14 @@ export const DashboardShell: React.FC = () => {
   const renderActiveView = () => {
     switch (activeTab) {
       case 'live_market':
-        return <LiveMarketView marketTick={marketTick} priceHistory={priceHistory} />;
+        return (
+          <LiveMarketView
+            marketTick={marketTick}
+            priceHistory={priceHistory}
+            marketInterval={marketInterval}
+            onSetMarketInterval={setMarketInterval}
+          />
+        );
       case 'decisions':
         return <AuditTrail decisions={decisions} />;
       case 'strategy':
@@ -126,12 +162,13 @@ export const DashboardShell: React.FC = () => {
             marketTick={marketTick}
             priceHistory={priceHistory}
             onInjectPositiveNews={handleInjectPositiveNews}
-            onInjectFailure={() => handleStepPhase(5)}
+            onInjectFailure={handleInjectContradiction}
             onSpeak={speakText}
           />
         );
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex">

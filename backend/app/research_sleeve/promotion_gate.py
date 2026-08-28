@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from backend.app.schemas.contracts import Experiment, ExperimentStatus, PromotionStatus, StrategyPoolEntry
 from backend.app.audit.ledger import ledger
@@ -16,12 +16,16 @@ class PromotionGate:
             experiment.status = ExperimentStatus.VERIFIED
             
             # Create new StrategyPool entry
+            strat_id = f"{experiment.strategy_template_id}_delayed" if not experiment.strategy_template_id.endswith("_delayed") else experiment.strategy_template_id
+            if "v1" in experiment.strategy_template_id:
+                strat_id = "news_momentum_v2"
+
             promoted_entry = StrategyPoolEntry(
-                strategy_template_id=f"{experiment.strategy_template_id}_delayed",
+                strategy_template_id=strat_id,
                 name=f"News + Momentum ({experiment.parameters.get('confirmation_delay_sec', 300)}s Confirmation Delay)",
                 params=experiment.parameters,
                 status="active",
-                promoted_at=datetime.utcnow().isoformat() + "Z",
+                promoted_at=datetime.now(timezone.utc).isoformat(),
                 oos_sharpe=experiment.validation_result.oos_sharpe,
                 p_value=experiment.validation_result.p_value
             )
@@ -37,3 +41,4 @@ class PromotionGate:
             return None
 
 promotion_gate = PromotionGate()
+

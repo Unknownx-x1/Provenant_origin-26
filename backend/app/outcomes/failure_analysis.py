@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.app.schemas.contracts import (
     Decision, FailureEvent, InvalidationCause, RegimeType, EvidenceType
 )
@@ -21,7 +21,7 @@ class FailureAnalysisEngine:
             regime=regime,
             invalidation_cause=cause,
             dominant_evidence_type=dominant_evidence,
-            timestamp=datetime.utcnow().isoformat() + "Z"
+            timestamp=datetime.now(timezone.utc).isoformat()
         )
         
         # Generate LLM explanation asynchronously
@@ -32,3 +32,4 @@ class FailureAnalysisEngine:
         return failure
 
 failure_analysis = FailureAnalysisEngine()
+

@@ -39,8 +39,12 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
           <div className="flex items-baseline gap-3 mt-1">
             <h3 className="text-xl font-extrabold text-slate-900 tracking-tight font-mono">AAPL — Apple Inc.</h3>
             <span className="text-2xl font-black font-mono text-slate-900">${displayPrice.toFixed(2)}</span>
-            <span className="text-xs font-bold font-mono text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-              +{displayChange.toFixed(2)}%
+            <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-full ${
+              displayChange >= 0
+                ? 'text-emerald-600 bg-emerald-50 border border-emerald-100'
+                : 'text-rose-600 bg-rose-50 border border-rose-100'
+            }`}>
+              {displayChange >= 0 ? `+${displayChange.toFixed(2)}%` : `${displayChange.toFixed(2)}%`}
             </span>
           </div>
         </div>
@@ -57,7 +61,7 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
           </div>
           <div className="bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
             <span className="text-slate-400 text-[10px] block font-semibold">REGIME</span>
-            <strong className="text-blue-600 font-semibold">Normal Regime</strong>
+            <strong className="text-blue-600 font-semibold">HIGH VOLATILITY</strong>
           </div>
 
           {/* Timeframe Selector */}
@@ -76,6 +80,7 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
           </div>
         </div>
       </div>
+
 
       {/* Clean White Area Chart */}
       <div className="h-44 w-full pt-1">

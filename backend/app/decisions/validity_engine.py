@@ -17,6 +17,14 @@ def calculate_validity(decision) -> float:
     if total_weight == 0:
         return 0.0
 
+    # If supporting premise is contradicted, apply thesis invalidation penalty
+    has_contradiction = any(
+        getattr(e, "contradicted", False) or getattr(e, "freshness", "") == "CONTRADICTED" or getattr(e, "status", "") == "CONTRADICTED"
+        for e in nodes
+    )
+    if has_contradiction:
+        effective_weight *= 0.50
+
     validity = effective_weight / total_weight
     return round(validity, 2)
 
@@ -25,4 +33,5 @@ def update_decision_validity(decision, regime: str = "HIGH_VOLATILITY") -> float
     decision.validity_score = new_validity
     decision.validity_threshold = calculate_adaptive_threshold(regime)
     return new_validity
+
 

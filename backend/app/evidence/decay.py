@@ -40,16 +40,17 @@ def get_decay_factor(evidence) -> float:
     return max(0.0, min(1.0, decay_factor))
 
 def get_effective_weight(evidence) -> float:
-    if getattr(evidence, "contradicted", False):
+    if getattr(evidence, "contradicted", False) or getattr(evidence, "freshness", "") == "CONTRADICTED" or getattr(evidence, "status", "") == "CONTRADICTED":
         return 0.0
 
     freshness = getattr(evidence, "freshness", "FRESH")
     e_type = str(getattr(evidence, "type", "")).upper()
-    if (freshness == "DECAYING" or freshness == "CONTRADICTED") and ("NEWS" in e_type):
-        return 0.05  # Severe penalty when contradicted
+    decay_mult = 0.4 if (freshness == "DECAYING" and "NEWS" in e_type) else 1.0
 
-    decay = get_decay_factor(evidence)
+    decay = get_decay_factor(evidence) * decay_mult
     base_weight = getattr(evidence, "base_weight", getattr(evidence, "weight", 0.33))
-    trust_score = getattr(evidence, "trust_score", 1.0)
-    return base_weight * decay * trust_score
+    trust_score = getattr(evidence, "trust_score", getattr(evidence, "confidence", 1.0))
+    if trust_score is None:
+        trust_score = 1.0
+    return float(base_weight) * decay * float(trust_score)
 

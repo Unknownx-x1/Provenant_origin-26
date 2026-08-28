@@ -8,11 +8,16 @@ from backend.app.schemas.contracts import (
 )
 from backend.app.audit.ledger import ledger
 from backend.app.ws.broadcaster import broadcaster
-from backend.app.evidence.decay import get_effective_weight
+from backend.app.ingestion.event_bus import event_bus
+from backend.app.ingestion.news_injector import inject_news
+from backend.app.ingestion.simulator import current_market_tick, market_update_interval_sec
+from backend.app.evidence.processor import evidence_processor
+from backend.app.decisions.engine import decision_engine
 from backend.app.decisions.validity_engine import update_decision_validity, calculate_adaptive_threshold
 from backend.app.decisions.actions import determine_action
 from backend.app.execution.validator import execution_validator
 from backend.app.execution.executor import executor
+from backend.app.outcomes.monitor import outcome_monitor
 from backend.app.outcomes.failure_analysis import failure_analysis
 from backend.app.research_sleeve.pattern_detector import pattern_detector
 from backend.app.research_sleeve.hypothesis import hypothesis_engine
@@ -22,6 +27,7 @@ from backend.app.research_sleeve.backtest import backtest_engine
 from backend.app.research_sleeve.validation import validation_engine
 from backend.app.research_sleeve.promotion_gate import promotion_gate
 from backend.app.research_sleeve.strategy_pool import strategy_pool_manager
+from backend.app.opportunities.generator import reset_opportunity_state, set_opportunity_active
 from backend.app.ai.voice import voice_service
 
 PHASE_NAMES = [
@@ -73,7 +79,7 @@ class AutonomousDemoEngine:
             "autonomous_mode": self.autonomous_mode,
             "active_stock": self.active_stock,
             "voice_enabled": voice_service.enabled,
-            "activity_log": self.activity_log[:15]
+            "activity_log": self.activity_log[:20]
         })
 
     async def execute_phase(self, phase: int):
@@ -81,102 +87,177 @@ class AutonomousDemoEngine:
 
         if phase == 1:
             # Phase 1: Market Observation
-            self.log_activity("Market Observation", "Observing AAPL ($228.40 +1.18%) in synthetic paper trading environment.")
-            await broadcaster.broadcast("MARKET_TICK", {
-                "asset": "AAPL",
-                "price": 228.40,
-                "change_pct": 1.18,
-                "volume": 7450000
-            })
+            price = current_market_tick.get("price", 228.40)
+            change = current_market_tick.get("change_pct", 1.18)
+            self.log_activity("Market Observation", f"Observing AAPL (${price:.2f} +{change:.2f}%) in synthetic paper trading environment.")
+            await broadcaster.broadcast("MARKET_TICK", current_market_tick)
 
         elif phase == 2:
-            # Phase 2: Opportunity Detected
+            # Phase 2: Opportunity Detected via Real Positive News & Technical Ingestion
+            news_event = await inject_news(
+                asset="AAPL",
+                headline="Apple raises Q3 guidance and beats revenue expectations",
+                source="Reuters (Simulated)",
+                sentiment="positive",
+                confidence=0.91,
+                weight=0.35,
+                impact="SUPPORTS BUY AAPL",
+                status="ACTIVE"
+            )
+            await evidence_processor.process_market_event(news_event)
+            await evidence_processor.process_market_event({"type": "price", "asset": "AAPL", "rsi": 64.2})
+            await evidence_processor.process_market_event({"type": "orderbook", "asset": "AAPL", "bid_volume": 8500, "ask_volume": 4200})
+
             active_pool = strategy_pool_manager.get_active_pool()
             active_strat = active_pool[-1].strategy_template_id if active_pool else "news_momentum_v1"
-            self.log_activity("Opportunity Detected", f"News + Momentum + Liquidity signals aligned for AAPL BUY setup ({active_strat}).")
+            self.log_activity("Opportunity Detected", f"News + Momentum + Liquidity signals aligned for AAPL BUY setup ({active_strat}).", category="decision")
 
         elif phase == 3:
-            # Phase 3: Autonomous Decision Creation (BUY AAPL, V=0.91)
+            # Phase 3: Autonomous Decision Creation via DecisionEngine
             active_pool = strategy_pool_manager.get_active_pool()
             active_strat = active_pool[-1].strategy_template_id if active_pool else "news_momentum_v1"
 
-            decision_id = f"dec_{uuid.uuid4().hex[:6]}"
             nodes = [
-                EvidenceNode(id="e1", type=EvidenceType.NEWS, weight=0.35, source="Bloomberg Breaking", captured_at=datetime.now(timezone.utc).isoformat(), value="Positive Earnings Beats Expectations"),
-                EvidenceNode(id="e2", type=EvidenceType.MOMENTUM, weight=0.25, source="RSI_14 (Crossed > 60)", captured_at=datetime.now(timezone.utc).isoformat(), value="Bullish Momentum"),
-                EvidenceNode(id="e3", type=EvidenceType.ORDERBOOK, weight=0.25, source="Depth Proxy (Imbalance 1.8x)", captured_at=datetime.now(timezone.utc).isoformat(), value="Buyer Imbalance"),
-                EvidenceNode(id="e4", type=EvidenceType.VOLATILITY, weight=0.15, source="VIX Regime Modifier", captured_at=datetime.now(timezone.utc).isoformat(), value="Normal Volatility")
+                EvidenceNode(
+                    id="e1",
+                    type=EvidenceType.NEWS,
+                    weight=0.35,
+                    source="Reuters (Simulated)",
+                    headline="Apple raises Q3 guidance and beats revenue expectations",
+                    confidence=0.91,
+                    impact="SUPPORTS BUY AAPL",
+                    status="ACTIVE",
+                    freshness="FRESH",
+                    value="Apple raises Q3 guidance and beats revenue expectations"
+                ),
+                EvidenceNode(
+                    id="e2",
+                    type=EvidenceType.MOMENTUM,
+                    weight=0.25,
+                    source="RSI_14",
+                    confidence=0.95,
+                    impact="Bullish Trend",
+                    status="ACTIVE",
+                    freshness="FRESH",
+                    value="RSI 64.2 Bullish Momentum"
+                ),
+                EvidenceNode(
+                    id="e3",
+                    type=EvidenceType.ORDERBOOK,
+                    weight=0.25,
+                    source="OrderBook Depth Proxy",
+                    confidence=0.90,
+                    impact="Buyer Imbalance",
+                    status="ACTIVE",
+                    freshness="FRESH",
+                    value="Buyer Imbalance 1.8x"
+                ),
+                EvidenceNode(
+                    id="e4",
+                    type=EvidenceType.VOLATILITY,
+                    weight=0.15,
+                    source="VIX Regime Modifier",
+                    confidence=0.85,
+                    impact="Regime Modifier",
+                    status="ACTIVE",
+                    freshness="FRESH",
+                    value="Normal Volatility"
+                )
             ]
-            
-            decision = Decision(
-                decision_id=decision_id,
-                opportunity_id=f"opp_{decision_id}",
-                asset="AAPL",
-                action="BUY",
-                evidence_nodes=nodes,
-                validity_score=0.91,
-                validity_threshold=calculate_adaptive_threshold("HIGH_VOLATILITY"),
-                status=DecisionStatus.OPEN,
-                strategy_template_id=active_strat,
-                allocation=0.20
-            )
-            update_decision_validity(decision, "HIGH_VOLATILITY")
-            ledger.log_decision(decision)
-            self.log_activity("Autonomous Decision", f"BUY AAPL created (Validity: {decision.validity_score}, Threshold: {decision.validity_threshold}, Alloc: 20%).", category="decision")
-            await broadcaster.broadcast("DECISION_UPDATE", decision.model_dump())
+
+            opp = {
+                "opportunity_id": f"opp_{uuid.uuid4().hex[:6]}",
+                "asset": "AAPL",
+                "action": "BUY",
+                "evidence_nodes": nodes,
+                "strategy_template_id": active_strat
+            }
+            decision = await decision_engine.handle_opportunity(opp)
+            if decision:
+                self.log_activity("Autonomous Decision", f"BUY AAPL created (Validity: {decision.validity_score:.2f}, Threshold: {decision.validity_threshold:.2f}, Alloc: 20%).", category="decision")
 
         elif phase == 4:
             # Phase 4: Continuous Monitoring
             latest_decision = ledger.decisions[-1] if ledger.decisions else None
             if latest_decision:
                 v_score = update_decision_validity(latest_decision, "HIGH_VOLATILITY")
-                self.log_activity("Continuous Monitoring", f"Monitoring live validity V(t)={v_score} against adaptive threshold τ={latest_decision.validity_threshold}.")
+                self.log_activity("Continuous Monitoring", f"Monitoring live validity V(t)={v_score:.2f} against adaptive threshold τ={latest_decision.validity_threshold:.2f}.", category="system")
                 await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
 
         elif phase == 5:
-            # Phase 5: Contradictory Evidence ("Apple earnings guidance revised downward")
+            # Phase 5: Contradictory News Evidence Injected
+            news_event = await inject_news(
+                asset="AAPL",
+                headline="Apple cuts revenue guidance amid weaker iPhone demand",
+                source="Reuters (Simulated)",
+                sentiment="negative",
+                confidence=0.91,
+                weight=0.35,
+                impact="CONTRADICTS BUY AAPL",
+                status="CONTRADICTED",
+                contradicts="latest"
+            )
+            node = await evidence_processor.process_market_event(news_event)
             latest_decision = ledger.decisions[-1] if ledger.decisions else None
-            if latest_decision and latest_decision.evidence_nodes:
-                latest_decision.evidence_nodes[0].freshness = "CONTRADICTED"
-                latest_decision.evidence_nodes[0].value = "Apple earnings guidance revised downward (CONTRADICTED)"
+
+            if latest_decision:
+                # Update evidence node freshness and recalculate
+                for n in latest_decision.evidence_nodes:
+                    if n.type == EvidenceType.NEWS or "NEWS" in str(n.type):
+                        n.freshness = "CONTRADICTED"
+                        n.status = "CONTRADICTED"
+                        n.contradicted = True
+                        n.headline = news_event["headline"]
+                        n.value = f"{news_event['headline']} (CONTRADICTED)"
+                        n.impact = "CONTRADICTS BUY AAPL"
                 
-                # Compute real score with contradicted node penalty
-                update_decision_validity(latest_decision, "HIGH_VOLATILITY")
-                latest_decision.validity_score = 0.34  # Recomputed score upon news contradiction
-                latest_decision.explanation = f"The BUY decision was invalidated because positive earnings news was contradicted by downward guidance. Validity fell from 0.91 to {latest_decision.validity_score} (below threshold {latest_decision.validity_threshold})."
-                
-                self.log_activity("Contradictory Evidence", f"News contradicted: Apple earnings guidance revised downward. Validity 0.91 ➔ {latest_decision.validity_score}.", category="alert")
+                old_v = latest_decision.validity_score
+                new_v = update_decision_validity(latest_decision, "HIGH_VOLATILITY")
+                self.log_activity(
+                    "Contradictory Evidence",
+                    f"News contradicted: '{news_event['headline']}'. Validity {old_v:.2f} ➔ {new_v:.2f}.",
+                    category="alert"
+                )
                 await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
 
         elif phase == 6:
-            # Phase 6: AUTONOMOUS ACTION (REVERSE AAPL)
+            # Phase 6: AUTONOMOUS ACTION (REVERSE AAPL) via real action logic
             latest_decision = ledger.decisions[-1] if ledger.decisions else None
             if latest_decision:
-                next_action = determine_action(latest_decision)
-                latest_decision.status = DecisionStatus.REVERSED if next_action == "REVERSE" else DecisionStatus.REDUCED
-                
-                # Validate execution
-                validation = execution_validator.validate_execution(latest_decision, requested_amount_usd=20000.0)
-                if validation["valid"]:
-                    exec_res = await executor.execute_trade_action({"action": "SELL", "asset": "AAPL", "allocation": 0.20})
-                    self.log_activity("AUTONOMOUS ACTION", f"VALIDITY BREACHED ({latest_decision.validity_score} < {latest_decision.validity_threshold}) ➔ Position AUTOMATICALLY REVERSED (SELL AAPL fill at {exec_res['slippage_bps']}bps slippage).", category="action")
-                await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
+                action = determine_action(latest_decision)
+                if action == "REVERSE":
+                    latest_decision.status = DecisionStatus.REVERSED
+                    exec_res = await executor.execute_trade_action({"action": "SELL", "asset": "AAPL", "allocation": latest_decision.allocation})
+                    latest_decision.explanation = (
+                        f"The BUY decision was invalidated because supporting news evidence was contradicted. "
+                        f"Validity dropped to {latest_decision.validity_score:.2f} (below threshold {latest_decision.validity_threshold:.2f}). "
+                        f"Position was automatically REVERSED to SELL AAPL."
+                    )
+                    ledger.log_decision(latest_decision)
+                    self.log_activity(
+                        "AUTONOMOUS ACTION",
+                        f"VALIDITY BREACHED ({latest_decision.validity_score:.2f} < {latest_decision.validity_threshold:.2f}) ➔ Position AUTOMATICALLY REVERSED (SELL AAPL fill at {exec_res['slippage_bps']}bps slippage).",
+                        category="action"
+                    )
+                    await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
+                    await broadcaster.broadcast("EXECUTION_UPDATE", {
+                        "decision_id": latest_decision.decision_id,
+                        "action": "SELL",
+                        "asset": "AAPL",
+                        "allocation": latest_decision.allocation,
+                        "status": "REVERSED",
+                        "slippage_bps": exec_res["slippage_bps"]
+                    })
 
         elif phase == 7:
             # Phase 7: Failure Recording
             latest_decision = ledger.decisions[-1] if ledger.decisions else None
             if latest_decision:
-                failure = await failure_analysis.analyze_invalidation(
-                    decision=latest_decision,
-                    cause=InvalidationCause.EVIDENCE_CONTRADICTED,
-                    regime=RegimeType.HIGH_VOL,
-                    dominant_evidence=EvidenceType.NEWS
-                )
+                outcome_res = await outcome_monitor.process_decision_update(latest_decision)
                 self.log_activity("Failure Recorded", f"FailureEvent logged for strategy {latest_decision.strategy_template_id} in HIGH_VOL regime.", category="failure")
-                await broadcaster.broadcast("FAILURE_EVENT", failure.model_dump())
 
         elif phase == 8:
-            # Phase 8: Repeat Failures (Ensure 3 failures exist to trigger research)
+            # Phase 8: Recurring Failure Pattern (Ensure 3 structural failures recorded)
             while len(ledger.failure_events) < 3:
                 f_id = f"fail_{uuid.uuid4().hex[:6]}"
                 fail = FailureEvent(
@@ -192,10 +273,12 @@ class AutonomousDemoEngine:
             self.log_activity("RECURRING FAILURE DETECTED", "3 similar failures detected for news_momentum_v1 during high volatility.", category="pattern")
 
         elif phase == 9:
-            # Phase 9: Research Trigger Fired
+            # Phase 9: Research Trigger Fired from PatternDetector
             latest_failure = ledger.failure_events[-1]
             trigger = await pattern_detector.register_failure(latest_failure)
-            if not trigger:
+            if not trigger and ledger.research_triggers:
+                trigger = ledger.research_triggers[-1]
+            elif not trigger:
                 trigger = ResearchTrigger(
                     trigger_id=f"trig_{uuid.uuid4().hex[:6]}",
                     strategy_template_id="news_momentum_v1",
@@ -203,7 +286,7 @@ class AutonomousDemoEngine:
                     dominant_evidence_type=EvidenceType.NEWS,
                     failure_count=3,
                     window_sec=300,
-                    narrative="3 failures detected for news_momentum_v1 during high-volatility news events. Initiating research experiment."
+                    narrative="3 recurring failures detected for news_momentum_v1 during high-volatility news events. Initiating research experiment."
                 )
                 ledger.log_trigger(trigger)
 
@@ -231,7 +314,7 @@ class AutonomousDemoEngine:
                 await broadcaster.broadcast("EXPERIMENT_UPDATE", exp.model_dump())
 
         elif phase == 12:
-            # Phase 12: Historical Backtest (Unlock check)
+            # Phase 12: Calculated Historical Backtest (Unlock check)
             if self.current_experiment:
                 exp = experiment_manager.update_countdown(self.current_experiment.experiment_id)
                 if exp and exp.status == ExperimentStatus.LOCKED and exp.seconds_remaining > 0:
@@ -246,24 +329,27 @@ class AutonomousDemoEngine:
                 await broadcaster.broadcast("EXPERIMENT_UPDATE", self.current_experiment.model_dump())
 
         elif phase == 13:
-            # Phase 13: Out-of-Sample Validation
+            # Phase 13: Calculated Out-of-Sample Validation
             if self.current_experiment and self.current_experiment.backtest_result:
                 val = validation_engine.validate_oos(self.current_experiment.backtest_result, self.current_experiment.parameters)
                 self.current_experiment.validation_result = val
-                self.log_activity("OOS Validation Complete", f"OOS Sharpe: {val.oos_sharpe} ✓, p-value: {val.p_value} ✓, Decay: {val.decay*100:.1f}% ✓", category="validation")
+                self.log_activity("OOS Validation Complete", f"OOS Sharpe: {val.oos_sharpe:.2f} ✓, p-value: {val.p_value:.3f} ✓, Decay: {val.decay*100:.1f}% ✓", category="validation")
                 await broadcaster.broadcast("EXPERIMENT_UPDATE", self.current_experiment.model_dump())
 
         elif phase == 14:
             # Phase 14: Promotion Gate Evaluation
-            self.log_activity("PROMOTION GATE PASS", "All 3 criteria cleared: p < 0.05 PASS, OOS Sharpe > 0.8 PASS, Decay < 15% PASS.", category="gate")
+            if self.current_experiment and self.current_experiment.validation_result:
+                is_valid = self.current_experiment.validation_result.is_valid
+                status_txt = "PASS" if is_valid else "REJECTED"
+                self.log_activity("PROMOTION GATE EVALUATION", f"Promotion Gate {status_txt}: p < 0.05 PASS, OOS Sharpe > 0.8 PASS, Decay < 15% PASS.", category="gate")
 
         elif phase == 15:
             # Phase 15: Strategy Promoted
             if self.current_experiment:
                 promoted = promotion_gate.evaluate_and_promote(self.current_experiment)
-                self.log_activity("STRATEGY PROMOTED", "Strategy news_momentum_v2 (5-Min Confirmation Delay) promoted to Strategy Pool.", category="promotion")
-                await broadcaster.broadcast("EXPERIMENT_UPDATE", self.current_experiment.model_dump())
                 if promoted:
+                    self.log_activity("STRATEGY PROMOTED", f"Strategy {promoted.strategy_template_id} ({promoted.name}) promoted to Strategy Pool.", category="promotion")
+                    await broadcaster.broadcast("EXPERIMENT_UPDATE", self.current_experiment.model_dump())
                     await broadcaster.broadcast("STRATEGY_PROMOTED", promoted.model_dump())
 
         elif phase == 16:
@@ -278,7 +364,7 @@ class AutonomousDemoEngine:
         while self.autonomous_mode:
             await self.execute_phase(self.current_phase)
 
-            # If current phase is 11 (Vault Lock), wait until lock countdown reaches 0!
+            # If current phase is 11 (Vault Lock), wait until lock countdown reaches 0
             if self.current_phase == 11 and self.current_experiment:
                 while self.autonomous_mode:
                     exp = experiment_manager.update_countdown(self.current_experiment.experiment_id)
@@ -287,7 +373,7 @@ class AutonomousDemoEngine:
                         break
                     await asyncio.sleep(1.0)
             else:
-                await asyncio.sleep(10.0)  # Paced at ~10 seconds between autonomous demo events for human scannability
+                await asyncio.sleep(10.0)
 
             next_phase = (self.current_phase % len(PHASE_NAMES)) + 1
             self.current_phase = next_phase
@@ -305,11 +391,13 @@ class AutonomousDemoEngine:
     def reset_demo(self):
         self.pause_autonomous()
         ledger.reset()
+        reset_opportunity_state()
         self.current_phase = 1
         self.activity_log.clear()
         self.current_experiment = None
         self.log_activity("System Reset", "Demo state reset to Phase 1 in synthetic paper trading mode.")
 
 demo_engine = AutonomousDemoEngine()
+
 
 

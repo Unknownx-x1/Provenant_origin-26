@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 class InvalidationCause(str, Enum):
     EVIDENCE_CONTRADICTED = "evidence_contradicted"
@@ -55,9 +57,15 @@ class EvidenceNode(BaseModel):
     type: EvidenceType
     weight: float
     source: str
-    captured_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    captured_at: str = Field(default_factory=utc_now_iso)
     freshness: str = "FRESH"
     value: Optional[Any] = None
+    headline: Optional[str] = None
+    sentiment: Optional[str] = None
+    confidence: Optional[float] = 0.91
+    impact: Optional[str] = None
+    status: Optional[str] = "ACTIVE"
+    contradicted: bool = False
 
 
 class Decision(BaseModel):
@@ -72,7 +80,7 @@ class Decision(BaseModel):
     strategy_template_id: str = "news_momentum_v1"
     allocation: float = 0.20
     explanation: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    created_at: str = Field(default_factory=utc_now_iso)
 
 
 class FailureEvent(BaseModel):
@@ -82,7 +90,7 @@ class FailureEvent(BaseModel):
     regime: RegimeType
     invalidation_cause: InvalidationCause
     dominant_evidence_type: EvidenceType
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    timestamp: str = Field(default_factory=utc_now_iso)
 
 
 class ResearchTrigger(BaseModel):
@@ -93,7 +101,7 @@ class ResearchTrigger(BaseModel):
     failure_count: int = 3
     window_sec: int = 300
     narrative: Optional[str] = None
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    timestamp: str = Field(default_factory=utc_now_iso)
 
 
 class BacktestResult(BaseModel):
@@ -126,7 +134,7 @@ class Experiment(BaseModel):
     validation_result: Optional[ValidationResult] = None
     promotion_status: PromotionStatus = PromotionStatus.PENDING
     explanation: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    created_at: str = Field(default_factory=utc_now_iso)
 
 
 class StrategyPoolEntry(BaseModel):
@@ -134,7 +142,7 @@ class StrategyPoolEntry(BaseModel):
     name: str
     params: Dict[str, Any]
     status: str = "ACTIVE"  # ACTIVE | RETIRED
-    promoted_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    promoted_at: str = Field(default_factory=utc_now_iso)
     oos_sharpe: float
     p_value: float
 
@@ -166,3 +174,4 @@ class DemoState(BaseModel):
     active_stock: str = "AAPL"
     voice_enabled: bool = True
     activity_log: List[ActivityEntry] = []
+

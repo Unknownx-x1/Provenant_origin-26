@@ -1,16 +1,16 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from backend.app.schemas.contracts import Experiment, ExperimentStatus, PromotionStatus
 from backend.app.audit.ledger import ledger
 
 class ExperimentManager:
     def start_commit(self, experiment: Experiment, commit_hash: str, lock_duration_sec: int = 60) -> Experiment:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         until = now + timedelta(seconds=lock_duration_sec)
         
         experiment.commit_hash = commit_hash
-        experiment.locked_at = now.isoformat() + "Z"
-        experiment.lock_until = until.isoformat() + "Z"
+        experiment.locked_at = now.isoformat()
+        experiment.lock_until = until.isoformat()
         experiment.seconds_remaining = lock_duration_sec
         experiment.status = ExperimentStatus.LOCKED
         
@@ -22,8 +22,15 @@ class ExperimentManager:
         if not experiment or not experiment.lock_until:
             return experiment
             
-        until_dt = datetime.fromisoformat(experiment.lock_until.replace("Z", ""))
-        now_dt = datetime.utcnow()
+        try:
+            until_dt = datetime.fromisoformat(experiment.lock_until.replace("Z", "+00:00"))
+        except Exception:
+            until_dt = datetime.now(timezone.utc)
+
+        if until_dt.tzinfo is None:
+            until_dt = until_dt.replace(tzinfo=timezone.utc)
+
+        now_dt = datetime.now(timezone.utc)
         remaining = int((until_dt - now_dt).total_seconds())
         
         if remaining <= 0:
@@ -37,3 +44,4 @@ class ExperimentManager:
         return experiment
 
 experiment_manager = ExperimentManager()
+

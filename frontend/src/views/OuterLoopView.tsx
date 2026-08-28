@@ -23,6 +23,7 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
   const latestTrigger = triggers[0];
   const latestExperiment = experiments[0];
   const activeStrategies = strategyPool;
+  const valResult = latestExperiment?.validation_result;
 
   return (
     <div className="space-y-6 font-sans">
@@ -58,7 +59,7 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
             {latestTrigger ? (
               <div className="space-y-2">
                 <div className="text-xs font-bold text-slate-900">
-                  3 Failures Detected
+                  {latestTrigger.failure_count || 3} Failures Detected
                 </div>
                 <div className="text-[11px] text-slate-700 bg-white p-2 rounded-xl border border-rose-200 font-mono space-y-0.5">
                   <div>Strategy: {latestTrigger.strategy_template_id}</div>
@@ -91,7 +92,7 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
                   {latestExperiment.hypothesis}
                 </p>
                 <div className="text-[10px] font-mono text-slate-700 bg-amber-100/60 p-1 rounded-md text-center">
-                  confirmation_delay_sec = 300
+                  {Object.entries(latestExperiment.parameters || {}).map(([k, v]) => `${k} = ${v}`).join(', ') || 'confirmation_delay_sec = 300'}
                 </div>
               </div>
             ) : (
@@ -107,26 +108,32 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
 
         {/* Stage 4: OOS Validation */}
         <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${
-          latestExperiment?.validation_result ? 'bg-blue-50/70 border-blue-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
+          valResult ? 'bg-blue-50/70 border-blue-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
         }`}>
           <div>
             <div className="flex items-center gap-2 text-blue-700 text-xs font-semibold mb-2">
               <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-[10px] font-bold">STAGE 4</span>
               OOS Validation
             </div>
-            {latestExperiment?.validation_result ? (
+            {valResult ? (
               <div className="space-y-1.5 text-xs font-mono">
                 <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
                   <span className="text-slate-500">Sharpe:</span>
-                  <span className="text-emerald-600 font-bold">1.42 ✓</span>
+                  <span className={`font-bold ${valResult.oos_sharpe >= 0.8 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {valResult.oos_sharpe.toFixed(2)} {valResult.oos_sharpe >= 0.8 ? '✓' : '✗'}
+                  </span>
                 </div>
                 <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
                   <span className="text-slate-500">p-value:</span>
-                  <span className="text-emerald-600 font-bold">0.018 ✓</span>
+                  <span className={`font-bold ${valResult.p_value <= 0.05 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {valResult.p_value.toFixed(3)} {valResult.p_value <= 0.05 ? '✓' : '✗'}
+                  </span>
                 </div>
                 <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
                   <span className="text-slate-500">Decay:</span>
-                  <span className="text-emerald-600 font-bold">11.2% ✓</span>
+                  <span className={`font-bold ${valResult.decay <= 0.15 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {(valResult.decay * 100).toFixed(1)}% {valResult.decay <= 0.15 ? '✓' : '✗'}
+                  </span>
                 </div>
               </div>
             ) : (
@@ -149,7 +156,7 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
                 <CheckCircle2 className="w-7 h-7 text-emerald-600 mx-auto" />
                 <div className="text-xs font-bold text-emerald-700 uppercase">Strategy Promoted</div>
                 <div className="text-[10px] font-mono text-emerald-900 bg-white p-1.5 rounded-lg border border-emerald-200 font-bold">
-                  news_momentum_v2
+                  {activeStrategies.length > 0 ? activeStrategies[activeStrategies.length - 1].strategy_template_id : 'news_momentum_v2'}
                 </div>
               </div>
             ) : (
@@ -215,3 +222,4 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
     </div>
   );
 };
+

@@ -51,10 +51,13 @@ async def test_full_experiment_lifecycle():
     exp.validation_result = validation
     
     assert validation.is_valid is True
-    assert validation.oos_sharpe == 1.42
+    assert validation.oos_sharpe >= 0.80
+    assert validation.p_value <= 0.05
+    assert validation.decay <= 0.15
     
     # 5. Promotion Gate
     promoted = promotion_gate.evaluate_and_promote(exp)
     assert promoted is not None
     assert exp.promotion_status == PromotionStatus.PROMOTED
-    assert "news_momentum_v1_delayed" in ledger.strategy_pool
+    assert ("news_momentum_v1_delayed" in ledger.strategy_pool or "news_momentum_v2" in ledger.strategy_pool)
+

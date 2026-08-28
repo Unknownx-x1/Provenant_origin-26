@@ -8,5 +8,8 @@ class EventBus:
         self.decision_events = asyncio.Queue()
         self.decision_evidence_events = asyncio.Queue()
         self.execution_events = asyncio.Queue()
+        self.failure_events = asyncio.Queue()
+        self.research_trigger_events = asyncio.Queue()
+        self.experiment_events = asyncio.Queue()
 
 event_bus = EventBus()

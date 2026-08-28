@@ -1,15 +1,22 @@
 import asyncio
+from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from backend.app.config import config
 from backend.app.schemas.contracts import (
-    Decision, DecisionStatus, EvidenceNode, EvidenceType
+    Decision, DecisionStatus, EvidenceNode, EvidenceType, ExperimentStatus
 )
 from backend.app.vault.router import router as vault_router
 from backend.app.ws.broadcaster import broadcaster
+from backend.app.ingestion.simulator import (
+    market_simulator, set_market_interval, current_market_tick, market_price_history, market_update_interval_sec
+)
+from backend.app.ingestion.news_injector import inject_news
+from backend.app.opportunities.generator import opportunity_generator
+from backend.app.decisions.engine import decision_engine
 from backend.app.outcomes.monitor import outcome_monitor
 from backend.app.research_sleeve.pattern_detector import pattern_detector
 from backend.app.research_sleeve.hypothesis import hypothesis_engine
@@ -34,12 +41,16 @@ app.include_router(vault_router)
 
 @app.on_event("startup")
 async def startup_event():
-    # Start autonomous demo engine loop on startup
+    # 1. Launch real background event pipeline workers
+    asyncio.create_task(market_simulator())
+    asyncio.create_task(opportunity_generator())
+    asyncio.create_task(decision_engine.run_decision_worker())
+
+    # 2. Start autonomous scenario loop
     demo_engine.start_autonomous()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    from backend.app.ingestion.simulator import current_market_tick, market_price_history
     await broadcaster.connect(websocket)
     try:
         await websocket.send_json({
@@ -51,6 +62,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "triggers": [t.model_dump() for t in ledger.research_triggers],
                 "market_tick": current_market_tick,
                 "price_history": market_price_history,
+                "market_interval": current_market_tick.get("interval_sec", 10.0),
                 "demo_state": {
                     "current_phase": demo_engine.current_phase,
                     "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
@@ -58,7 +70,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "autonomous_mode": demo_engine.autonomous_mode,
                     "active_stock": demo_engine.active_stock,
                     "voice_enabled": voice_service.enabled,
-                    "activity_log": demo_engine.activity_log[:15]
+                    "activity_log": demo_engine.activity_log[:20]
                 }
             }
         })
@@ -70,7 +82,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/api/health")
 async def get_health():
-    from datetime import datetime
     return {
         "backend_status": "ONLINE",
         "websocket_status": "LIVE" if len(broadcaster.active_connections) > 0 else "IDLE",
@@ -80,12 +91,44 @@ async def get_health():
         "current_phase": demo_engine.current_phase,
         "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
         "active_stock": demo_engine.active_stock,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 @app.get("/api/config")
 async def get_config():
     return config.dict()
+
+class MarketIntervalRequest(BaseModel):
+    interval_sec: float
+
+@app.post("/api/market/interval")
+async def update_market_interval(req: MarketIntervalRequest):
+    new_interval = set_market_interval(req.interval_sec)
+    await broadcaster.broadcast("MARKET_TICK", current_market_tick)
+    return {"status": "SUCCESS", "interval_sec": new_interval}
+
+@app.get("/api/market/state")
+async def get_market_state():
+    return {
+        "market_tick": current_market_tick,
+        "price_history": market_price_history,
+        "interval_sec": current_market_tick.get("interval_sec", 10.0)
+    }
+
+class InjectNewsRequest(BaseModel):
+    headline: Optional[str] = "Apple raises Q3 guidance"
+    sentiment: Optional[str] = "positive"
+    contradicts: Optional[str] = None
+
+@app.post("/api/market/inject-news")
+async def inject_news_endpoint(req: InjectNewsRequest):
+    news_ev = await inject_news(
+        asset="AAPL",
+        headline=req.headline or "Apple corporate update",
+        sentiment=req.sentiment or "positive",
+        contradicts=req.contradicts
+    )
+    return {"status": "INJECTED", "news": news_ev}
 
 @app.get("/api/demo/state")
 async def get_demo_state():
@@ -160,3 +203,4 @@ async def toggle_voice():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("backend.app.main:app", host="0.0.0.0", port=8000, reload=True)
+

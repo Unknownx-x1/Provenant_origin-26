@@ -1,6 +1,6 @@
 import uuid
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.app.schemas.contracts import FailureEvent, ResearchTrigger
 from backend.app.audit.ledger import ledger
 from backend.app.ai.hypothesis_explainer import hypothesis_explainer
@@ -31,7 +31,7 @@ class PatternDetector:
                 dominant_evidence_type=key_evidence,
                 failure_count=len(matching),
                 window_sec=self.window_sec,
-                timestamp=datetime.utcnow().isoformat() + "Z"
+                timestamp=datetime.now(timezone.utc).isoformat()
             )
             
             # Generate LLM narrative explaining research trigger
@@ -44,3 +44,4 @@ class PatternDetector:
         return None
 
 pattern_detector = PatternDetector()
+

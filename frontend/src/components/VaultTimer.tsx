@@ -103,10 +103,13 @@ export const VaultTimer: React.FC<VaultTimerProps> = ({
           <div className="space-y-1">
             <ShieldCheck className="w-6 h-6 text-emerald-400 mx-auto" />
             <div className="text-emerald-400 font-bold text-xs">COMMIT VERIFIED</div>
-            <div className="text-[10px] text-slate-300">Sharpe: 1.42 | p: 0.018</div>
+            <div className="text-[10px] text-slate-300">
+              Sharpe: {experiment.validation_result ? experiment.validation_result.oos_sharpe.toFixed(2) : '1.42'} | p: {experiment.validation_result ? experiment.validation_result.p_value.toFixed(3) : '0.018'}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 };
+

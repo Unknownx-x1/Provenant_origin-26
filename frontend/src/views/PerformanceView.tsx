@@ -7,6 +7,11 @@ interface PerformanceViewProps {
 }
 
 export const PerformanceView: React.FC<PerformanceViewProps> = ({ strategyPool }) => {
+  const latestStrategy = strategyPool.length > 0 ? strategyPool[strategyPool.length - 1] : null;
+  const oosSharpe = latestStrategy ? latestStrategy.oos_sharpe : 1.42;
+  const pValue = latestStrategy ? latestStrategy.p_value : 0.018;
+  const activeStratId = latestStrategy ? latestStrategy.strategy_template_id : 'news_momentum_v1';
+
   return (
     <div className="space-y-8 font-sans">
       {/* Header */}
@@ -24,17 +29,17 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({ strategyPool }
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-2">
           <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider block">OOS Sharpe Ratio</span>
-          <div className="text-2xl font-black font-mono text-emerald-600">1.42</div>
+          <div className="text-2xl font-black font-mono text-emerald-600">{oosSharpe.toFixed(2)}</div>
           <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-            ✓ Exceeds 0.80 Gate Threshold
+            {oosSharpe >= 0.8 ? '✓ Exceeds 0.80 Gate Threshold' : 'Below Gate Threshold'}
           </span>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-2">
           <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider block">p-Value Significance</span>
-          <div className="text-2xl font-black font-mono text-emerald-600">0.018</div>
+          <div className="text-2xl font-black font-mono text-emerald-600">{pValue.toFixed(3)}</div>
           <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100">
-            ✓ Statistically Significant (p &lt; 0.05)
+            {pValue <= 0.05 ? '✓ Statistically Significant (p < 0.05)' : 'Not Significant'}
           </span>
         </div>
 
@@ -48,7 +53,7 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({ strategyPool }
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-2">
           <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider block">Active Strategy</span>
-          <div className="text-xl font-bold font-mono text-slate-900 truncate">news_momentum_v2</div>
+          <div className="text-xl font-bold font-mono text-slate-900 truncate">{activeStratId}</div>
           <span className="text-[11px] text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
             Promoted & Active
           </span>
@@ -96,3 +101,4 @@ export const PerformanceView: React.FC<PerformanceViewProps> = ({ strategyPool }
     </div>
   );
 };
+
