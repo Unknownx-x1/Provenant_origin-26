@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from backend.app.ingestion.event_bus import event_bus
 
 async def inject_news(
-    asset: str = "BTC-USD",
+    asset: str = "AAPL",
     headline: str = "Positive Earnings & Market Expansion",
     sentiment: str = "positive",
     contradicts: Optional[str] = None
@@ -14,8 +14,9 @@ async def inject_news(
         "headline": headline,
         "sentiment": sentiment,
         "contradicts": contradicts,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
     await event_bus.market_events.put(news_event)
     return news_event
+

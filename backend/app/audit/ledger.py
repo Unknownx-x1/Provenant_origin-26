@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.app.schemas.contracts import (
     Decision, FailureEvent, ResearchTrigger, Experiment, StrategyPoolEntry
 )
@@ -11,18 +11,19 @@ class AuditLedger:
         self.research_triggers: List[ResearchTrigger] = []
         self.experiments: Dict[str, Experiment] = {}
         self.strategy_pool: Dict[str, StrategyPoolEntry] = {}
-        
-        # Initialize default base strategy
+        self._init_base_strategy()
+
+    def _init_base_strategy(self):
         base_strategy = StrategyPoolEntry(
             strategy_template_id="news_momentum_v1",
             name="News + Momentum Immediate Entry",
             params={"confirmation_delay_sec": 0},
             status="active",
-            promoted_at=datetime.utcnow().isoformat() + "Z",
+            promoted_at=datetime.now(timezone.utc).isoformat(),
             oos_sharpe=1.10,
             p_value=0.040
         )
-        self.strategy_pool[base_strategy.strategy_template_id] = base_strategy
+        self.strategy_pool = {base_strategy.strategy_template_id: base_strategy}
 
     def log_decision(self, decision: Decision):
         self.decisions.append(decision)
@@ -43,12 +44,14 @@ class AuditLedger:
         self.strategy_pool[entry.strategy_template_id] = entry
 
     def get_active_strategies(self) -> List[StrategyPoolEntry]:
-        return [s for s in self.strategy_pool.values() if s.status == "active"]
+        return [s for s in self.strategy_pool.values() if s.status.lower() == "active"]
 
     def reset(self):
         self.decisions.clear()
         self.failure_events.clear()
         self.research_triggers.clear()
         self.experiments.clear()
+        self._init_base_strategy()
 
 ledger = AuditLedger()
+

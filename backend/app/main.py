@@ -39,15 +39,18 @@ async def startup_event():
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    from backend.app.ingestion.simulator import current_market_tick, market_price_history
     await broadcaster.connect(websocket)
     try:
         await websocket.send_json({
             "type": "INITIAL_STATE",
             "data": {
-                "active_strategies": [s.dict() for s in strategy_pool_manager.get_active_pool()],
-                "decisions": [d.dict() for d in ledger.decisions],
-                "experiments": [e.dict() for e in ledger.experiments.values()],
-                "triggers": [t.dict() for t in ledger.research_triggers],
+                "active_strategies": [s.model_dump() for s in strategy_pool_manager.get_active_pool()],
+                "decisions": [d.model_dump() for d in ledger.decisions],
+                "experiments": [e.model_dump() for e in ledger.experiments.values()],
+                "triggers": [t.model_dump() for t in ledger.research_triggers],
+                "market_tick": current_market_tick,
+                "price_history": market_price_history,
                 "demo_state": {
                     "current_phase": demo_engine.current_phase,
                     "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
@@ -63,6 +66,22 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         broadcaster.disconnect(websocket)
+
+
+@app.get("/api/health")
+async def get_health():
+    from datetime import datetime
+    return {
+        "backend_status": "ONLINE",
+        "websocket_status": "LIVE" if len(broadcaster.active_connections) > 0 else "IDLE",
+        "market_status": "ACTIVE",
+        "hardware_status": "OFFLINE",
+        "agent_status": "RUNNING" if demo_engine.autonomous_mode else "IDLE",
+        "current_phase": demo_engine.current_phase,
+        "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
+        "active_stock": demo_engine.active_stock,
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
 @app.get("/api/config")
 async def get_config():
@@ -85,11 +104,25 @@ class StepRequest(BaseModel):
 
 @app.post("/api/demo/auto-step")
 async def step_demo(req: Optional[StepRequest] = None):
-    # Manual override control
+    # If Vault is LOCKED, reject manual step progression past phase 11 until countdown reaches 0
+    if demo_engine.current_experiment:
+        exp = experiment_manager.update_countdown(demo_engine.current_experiment.experiment_id)
+        if exp and exp.status == ExperimentStatus.LOCKED and exp.seconds_remaining > 0:
+            target_phase = req.phase if (req and req.phase) else (demo_engine.current_phase % 16) + 1
+            if target_phase > 11:
+                return {
+                    "status": "VAULT_LOCKED",
+                    "message": f"Vault lock active! 00:{exp.seconds_remaining:02d} remaining. Experiment parameters are frozen.",
+                    "current_phase": 11,
+                    "phase_name": PHASE_NAMES[10],
+                    "seconds_remaining": exp.seconds_remaining
+                }
+
     demo_engine.autonomous_mode = False
     target_phase = req.phase if (req and req.phase) else (demo_engine.current_phase % 16) + 1
     await demo_engine.execute_phase(target_phase)
     return {"status": "SUCCESS", "current_phase": demo_engine.current_phase, "phase_name": PHASE_NAMES[demo_engine.current_phase - 1]}
+
 
 @app.post("/api/demo/toggle-auto")
 async def toggle_auto():

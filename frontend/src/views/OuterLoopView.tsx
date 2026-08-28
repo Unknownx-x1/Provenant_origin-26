@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Lightbulb, Lock, BarChart3, CheckCircle2, ArrowDown, ShieldCheck, Volume2 } from 'lucide-react';
+import { AlertCircle, Lightbulb, Lock, BarChart3, CheckCircle2, ArrowDown, ShieldCheck, Volume2, Cpu } from 'lucide-react';
 import { ResearchTrigger, Experiment, StrategyPoolEntry } from '../ws/useLiveFeed';
 import { VaultTimer } from '../components/VaultTimer';
 
@@ -26,188 +26,183 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
 
   return (
     <div className="space-y-6 font-sans">
-      {/* 9. Outer Loop Header & Subtitle */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl">
-        <div className="flex justify-between items-start">
+      {/* Outer Loop Header */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <div className="flex flex-wrap justify-between items-start gap-4">
           <div>
-            <h2 className="text-xl font-extrabold text-slate-100 flex items-center gap-2 tracking-wide uppercase">
-              <ShieldCheck className="w-6 h-6 text-purple-400" />
-              OUTER LOOP — RESEARCH SLEEVE
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2 tracking-tight">
+              <ShieldCheck className="w-6 h-6 text-blue-600" />
+              Outer Loop — Research Sleeve & Capital Firewall
             </h2>
-            <p className="text-xs text-slate-400 mt-1 italic">
-              "Repeated failures become hypotheses. Only validated hypotheses become strategies."
+            <p className="text-xs text-slate-500 mt-1 font-medium">
+              "Does this strategy still deserve to exist in this market regime?"
             </p>
           </div>
-          <div className="bg-purple-950/80 border border-purple-800 text-purple-300 text-xs px-3 py-1.5 rounded-lg font-mono">
-            CAPITAL FIREWALL: <span className="text-emerald-400 font-bold">ENFORCED</span>
+          <div className="bg-blue-50 border border-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded-full font-semibold">
+            Capital Firewall: <span className="text-blue-600 font-bold">Enforced</span>
           </div>
         </div>
       </div>
 
-      {/* 9. Five-Stage Horizontal Flow */}
+      {/* 5 Stages */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {/* Stage 1: Recurring Failure Card */}
-        <div className={`border rounded-xl p-4 flex flex-col justify-between transition ${
-          latestTrigger ? 'bg-rose-950/40 border-rose-800 shadow-lg shadow-rose-950/20' : 'bg-slate-900/60 border-slate-800 opacity-60'
+        {/* Stage 1: Recurring Failure */}
+        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${
+          latestTrigger ? 'bg-rose-50/70 border-rose-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
         }`}>
           <div>
-            <div className="flex items-center gap-2 text-rose-400 text-xs font-mono font-bold mb-2">
-              <span className="bg-rose-900/60 text-rose-200 px-1.5 py-0.5 rounded">STAGE 1</span>
-              RECURRING FAILURE
+            <div className="flex items-center gap-2 text-rose-600 text-xs font-semibold mb-2">
+              <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-[10px] font-bold">STAGE 1</span>
+              Recurring Failure
             </div>
             {latestTrigger ? (
               <div className="space-y-2">
-                <div className="text-xs font-bold text-slate-200 uppercase">
-                  RECURRING FAILURE DETECTED
+                <div className="text-xs font-bold text-slate-900">
+                  3 Failures Detected
                 </div>
-                <div className="text-[11px] text-rose-300 bg-rose-900/30 p-2 rounded border border-rose-800/40 font-mono">
-                  <div>Failures: <strong>3</strong></div>
+                <div className="text-[11px] text-slate-700 bg-white p-2 rounded-xl border border-rose-200 font-mono space-y-0.5">
                   <div>Strategy: {latestTrigger.strategy_template_id}</div>
                   <div>Regime: {latestTrigger.regime}</div>
                   <div>Dominant: {latestTrigger.dominant_evidence_type}</div>
                 </div>
-                <div className="text-[10px] text-emerald-400 font-bold uppercase pt-1 border-t border-rose-900">
-                  ⚡ RESEARCH TRIGGER: FIRED
+                <div className="text-[10px] text-emerald-600 font-bold uppercase pt-1 border-t border-rose-200">
+                  ⚡ Trigger Fired
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 my-4 text-center">Monitoring failure patterns...</div>
+              <div className="text-xs text-slate-400 my-4 text-center">Monitoring failure patterns...</div>
             )}
           </div>
         </div>
 
-        {/* Stage 2: Hypothesis Card */}
-        <div className={`border rounded-xl p-4 flex flex-col justify-between transition ${
-          latestExperiment ? 'bg-amber-950/40 border-amber-800 shadow-lg shadow-amber-950/20' : 'bg-slate-900/60 border-slate-800 opacity-60'
+        {/* Stage 2: Hypothesis */}
+        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${
+          latestExperiment ? 'bg-amber-50/70 border-amber-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
         }`}>
           <div>
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-mono font-bold mb-2">
-              <span className="bg-amber-900/60 text-amber-200 px-1.5 py-0.5 rounded">STAGE 2</span>
-              HYPOTHESIS
+            <div className="flex items-center gap-2 text-amber-700 text-xs font-semibold mb-2">
+              <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full text-[10px] font-bold">STAGE 2</span>
+              Hypothesis
             </div>
             {latestExperiment ? (
               <div className="space-y-2">
-                <div className="text-xs font-semibold text-slate-200">Proposed Fix:</div>
-                <p className="text-[11px] text-amber-200/90 bg-amber-900/30 p-2 rounded border border-amber-800/40 font-mono">
+                <div className="text-xs font-bold text-slate-900">Proposed Variation:</div>
+                <p className="text-[11px] text-slate-700 bg-white p-2 rounded-xl border border-amber-200 font-mono leading-tight">
                   {latestExperiment.hypothesis}
                 </p>
-                <div className="text-[10px] font-mono text-slate-300 bg-slate-950 p-1 rounded">
-                  Param: confirmation_delay_sec = 300
+                <div className="text-[10px] font-mono text-slate-700 bg-amber-100/60 p-1 rounded-md text-center">
+                  confirmation_delay_sec = 300
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 my-4 text-center">Awaiting hypothesis trigger...</div>
+              <div className="text-xs text-slate-400 my-4 text-center">Awaiting hypothesis...</div>
             )}
           </div>
         </div>
 
-        {/* Stage 3: Hardware Vault Card */}
+        {/* Stage 3: Hardware Vault */}
         <div className="md:col-span-1">
-          <div className="text-[10px] font-mono font-bold text-purple-400 mb-1 tracking-wider uppercase">
-            STAGE 3: 🔐 THE VAULT
-          </div>
           <VaultTimer experiment={latestExperiment} onCommit={onCommit} onReveal={onReveal} />
         </div>
 
-        {/* Stage 4: Out-of-Sample Validation */}
-        <div className={`border rounded-xl p-4 flex flex-col justify-between transition ${
-          latestExperiment?.validation_result ? 'bg-cyan-950/40 border-cyan-800 shadow-lg shadow-cyan-950/20' : 'bg-slate-900/60 border-slate-800 opacity-60'
+        {/* Stage 4: OOS Validation */}
+        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${
+          latestExperiment?.validation_result ? 'bg-blue-50/70 border-blue-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
         }`}>
           <div>
-            <div className="flex items-center gap-2 text-cyan-400 text-xs font-mono font-bold mb-2">
-              <span className="bg-cyan-900/60 text-cyan-200 px-1.5 py-0.5 rounded">STAGE 4</span>
-              OOS VALIDATION
+            <div className="flex items-center gap-2 text-blue-700 text-xs font-semibold mb-2">
+              <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-[10px] font-bold">STAGE 4</span>
+              OOS Validation
             </div>
             {latestExperiment?.validation_result ? (
               <div className="space-y-1.5 text-xs font-mono">
-                <div className="flex justify-between bg-slate-950 p-1.5 rounded">
-                  <span className="text-slate-400">Sharpe Ratio:</span>
-                  <span className="text-emerald-400 font-bold">1.42 ✓</span>
+                <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
+                  <span className="text-slate-500">Sharpe:</span>
+                  <span className="text-emerald-600 font-bold">1.42 ✓</span>
                 </div>
-                <div className="flex justify-between bg-slate-950 p-1.5 rounded">
-                  <span className="text-slate-400">p-value:</span>
-                  <span className="text-emerald-400 font-bold">0.018 ✓</span>
+                <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
+                  <span className="text-slate-500">p-value:</span>
+                  <span className="text-emerald-600 font-bold">0.018 ✓</span>
                 </div>
-                <div className="flex justify-between bg-slate-950 p-1.5 rounded">
-                  <span className="text-slate-400">Decay:</span>
-                  <span className="text-emerald-400 font-bold">11.2% ✓</span>
+                <div className="flex justify-between bg-white p-1.5 rounded-lg border border-blue-100">
+                  <span className="text-slate-500">Decay:</span>
+                  <span className="text-emerald-600 font-bold">11.2% ✓</span>
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 my-4 text-center">Awaiting backtest validation...</div>
+              <div className="text-xs text-slate-400 my-4 text-center">Awaiting backtest...</div>
             )}
           </div>
         </div>
 
         {/* Stage 5: Strategy Promotion */}
-        <div className={`border rounded-xl p-4 flex flex-col justify-between transition ${
-          latestExperiment?.promotion_status === 'PROMOTED' ? 'bg-emerald-950/40 border-emerald-800 shadow-lg shadow-emerald-950/20' : 'bg-slate-900/60 border-slate-800 opacity-60'
+        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${
+          latestExperiment?.promotion_status === 'PROMOTED' ? 'bg-emerald-50/70 border-emerald-200 shadow-xs' : 'bg-white border-slate-200 opacity-60'
         }`}>
           <div>
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono font-bold mb-2">
-              <span className="bg-emerald-900/60 text-emerald-200 px-1.5 py-0.5 rounded">STAGE 5</span>
-              PROMOTION
+            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold mb-2">
+              <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full text-[10px] font-bold">STAGE 5</span>
+              Promotion
             </div>
             {latestExperiment?.promotion_status === 'PROMOTED' ? (
               <div className="space-y-2 text-center my-1">
-                <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
-                <div className="text-xs font-extrabold text-emerald-300 uppercase">🟢 STRATEGY PROMOTED</div>
-                <div className="text-[10px] font-mono text-slate-200 bg-emerald-900/40 p-1.5 rounded border border-emerald-800">
+                <CheckCircle2 className="w-7 h-7 text-emerald-600 mx-auto" />
+                <div className="text-xs font-bold text-emerald-700 uppercase">Strategy Promoted</div>
+                <div className="text-[10px] font-mono text-emerald-900 bg-white p-1.5 rounded-lg border border-emerald-200 font-bold">
                   news_momentum_v2
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-500 my-4 text-center">Pending statistical gate...</div>
+              <div className="text-xs text-slate-400 my-4 text-center">Pending gate...</div>
             )}
           </div>
         </div>
       </div>
 
-      {/* 15. Active Strategy Pool & Architecture Flow Diagram */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xl space-y-4">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+      {/* Active Strategy Pool */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-3 gap-4">
           <div>
-            <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-emerald-400" />
-              ACTIVE STRATEGY POOL
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-blue-600" />
+              Active Strategy Pool
             </h3>
-            <span className="text-xs text-purple-400 font-mono font-bold">Read-only by Track A</span>
+            <span className="text-xs text-slate-500 font-medium">Read-only by Track A Opportunity Generator</span>
           </div>
 
-          {/* Flow Diagram */}
-          <div className="flex items-center gap-2 font-mono text-[10px] bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 text-slate-300">
-            <span>RESEARCH SLEEVE</span>
+          <div className="flex items-center gap-2 font-mono text-[10px] bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 text-slate-600">
+            <span>Research Sleeve</span>
             <span>➔</span>
-            <span>PROMOTION GATE</span>
+            <span>Promotion Gate</span>
             <span>➔</span>
-            <span className="text-emerald-400 font-bold">STRATEGY POOL</span>
+            <span className="text-blue-600 font-bold">Strategy Pool</span>
             <span>➔</span>
-            <span className="text-cyan-400 font-bold">TRACK A</span>
+            <span className="text-emerald-600 font-bold">Track A</span>
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono">
-            <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+          <table className="w-full text-left text-xs font-sans">
+            <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
               <tr>
-                <th className="p-2.5">Template ID</th>
-                <th className="p-2.5">Name / Description</th>
-                <th className="p-2.5">Parameters</th>
-                <th className="p-2.5">OOS Sharpe</th>
-                <th className="p-2.5">p-value</th>
-                <th className="p-2.5">Status</th>
+                <th className="p-3">Template ID</th>
+                <th className="p-3">Name / Description</th>
+                <th className="p-3">Parameters</th>
+                <th className="p-3">OOS Sharpe</th>
+                <th className="p-3">p-value</th>
+                <th className="p-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-100 font-mono text-xs">
               {activeStrategies.map((s) => (
-                <tr key={s.strategy_template_id} className="hover:bg-slate-850">
-                  <td className="p-2.5 font-bold text-slate-200">{s.strategy_template_id}</td>
-                  <td className="p-2.5 text-slate-300">{s.name}</td>
-                  <td className="p-2.5 text-slate-400">{JSON.stringify(s.params)}</td>
-                  <td className="p-2.5 text-emerald-400 font-bold">{s.oos_sharpe}</td>
-                  <td className="p-2.5 text-emerald-400 font-bold">{s.p_value}</td>
-                  <td className="p-2.5">
-                    <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2 py-0.5 rounded text-[10px] font-bold uppercase">
+                <tr key={s.strategy_template_id} className="hover:bg-slate-50 transition">
+                  <td className="p-3 font-bold text-slate-900">{s.strategy_template_id}</td>
+                  <td className="p-3 text-slate-700 font-sans">{s.name}</td>
+                  <td className="p-3 text-slate-500">{JSON.stringify(s.params)}</td>
+                  <td className="p-3 text-emerald-600 font-bold">{s.oos_sharpe}</td>
+                  <td className="p-3 text-emerald-600 font-bold">{s.p_value}</td>
+                  <td className="p-3">
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase">
                       {s.status}
                     </span>
                   </td>

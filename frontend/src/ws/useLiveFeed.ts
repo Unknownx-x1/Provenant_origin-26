@@ -8,6 +8,7 @@ export interface Decision {
   validity_threshold: number;
   status: string;
   strategy_template_id: string;
+  created_at?: string;
   explanation?: string;
   evidence_nodes: Array<{
     id: string;
@@ -73,12 +74,33 @@ export interface DemoState {
   activity_log: ActivityEntry[];
 }
 
+export interface MarketTick {
+  asset: string;
+  price: number;
+  change_pct: number;
+  volume: number;
+}
+
 export function useLiveFeed() {
   const [connected, setConnected] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [triggers, setTriggers] = useState<ResearchTrigger[]>([]);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [strategyPool, setStrategyPool] = useState<StrategyPoolEntry[]>([]);
+  const [marketTick, setMarketTick] = useState<MarketTick>({
+    asset: 'AAPL',
+    price: 228.40,
+    change_pct: 1.18,
+    volume: 7450000
+  });
+  const [priceHistory, setPriceHistory] = useState<Array<{ time: string; price: number }>>([
+    { time: '16:00:00', price: 227.10 },
+    { time: '16:01:00', price: 227.45 },
+    { time: '16:02:00', price: 227.80 },
+    { time: '16:03:00', price: 228.15 },
+    { time: '16:04:00', price: 228.25 },
+    { time: '16:05:00', price: 228.40 }
+  ]);
   const [demoState, setDemoState] = useState<DemoState>({
     current_phase: 1,
     phase_name: 'Market Observation',
@@ -119,7 +141,13 @@ export function useLiveFeed() {
             setDecisions(data.decisions || []);
             setTriggers(data.triggers || []);
             setExperiments(data.experiments || []);
+            if (data.market_tick) setMarketTick(data.market_tick);
+            if (data.price_history) setPriceHistory(data.price_history);
             if (data.demo_state) setDemoState(data.demo_state);
+          } else if (type === 'MARKET_TICK') {
+            setMarketTick(data);
+            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setPriceHistory((prev) => [...prev.slice(-15), { time: timeStr, price: data.price }]);
           } else if (type === 'DECISION_UPDATE') {
             setDecisions((prev) => [data, ...prev.filter((d) => d.decision_id !== data.decision_id)]);
           } else if (type === 'RESEARCH_TRIGGER') {
@@ -127,7 +155,7 @@ export function useLiveFeed() {
           } else if (type === 'EXPERIMENT_CREATED' || type === 'EXPERIMENT_UPDATE') {
             setExperiments((prev) => [data, ...prev.filter((e) => e.experiment_id !== data.experiment_id)]);
           } else if (type === 'STRATEGY_PROMOTED') {
-            setStrategyPool((prev) => [data, ...prev]);
+            setStrategyPool((prev) => [data, ...prev.filter((s) => s.strategy_template_id !== data.strategy_template_id)]);
           } else if (type === 'DEMO_STATE_UPDATE') {
             setDemoState(data);
           } else if (type === 'RESET') {
@@ -149,5 +177,6 @@ export function useLiveFeed() {
     };
   }, []);
 
-  return { connected, decisions, triggers, experiments, strategyPool, demoState };
+  return { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, demoState };
 }
+
