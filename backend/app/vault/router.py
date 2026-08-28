@@ -32,7 +32,7 @@ async def commit_experiment(req: CommitRequest):
         experiment.parameters
     )
     
-    lock_sec = req.lock_duration_sec if req.lock_duration_sec is not None else config.experiment_lock_duration_sec
+    lock_sec = req.lock_duration_sec if req.lock_duration_sec is not None else 60
     experiment_manager.start_commit(experiment, commit_hash=commit_hash, lock_duration_sec=lock_sec)
     
     state = vault_lock_state.check_lock(experiment.experiment_id)
@@ -41,6 +41,9 @@ async def commit_experiment(req: CommitRequest):
 
 @router.get("/state/{experiment_id}", response_model=VaultState)
 async def get_vault_state(experiment_id: str):
+    # Hardware heartbeat is registered whenever hardware polls this endpoint
+    vault_lock_state.register_hardware_heartbeat()
+
     target_id = experiment_id
     if target_id == "latest" or target_id not in ledger.experiments:
         if ledger.experiments:
@@ -56,7 +59,7 @@ async def get_vault_state(experiment_id: str):
             commit_hash_full="WAITING FOR EXPERIMENT",
             oos_sharpe=None,
             p_value=None,
-            hardware_connected=True
+            hardware_connected=vault_lock_state.is_hardware_connected()
         )
     return state
 

@@ -7,6 +7,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'rec
 import { Decision } from '../ws/useLiveFeed';
 import { ValidityGauge } from '../components/ValidityGauge';
 import { EvidenceNodeCard } from '../components/EvidenceNodeCard';
+import { AuditTrail } from '../components/AuditTrail';
 
 interface InnerLoopViewProps {
   decisions: Decision[];
@@ -200,7 +201,7 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
             <div className="space-y-2 text-xs">
               <div className="bg-slate-950 p-2 rounded border border-slate-800">
                 <div className="text-slate-400 text-[10px]">Strategy Template:</div>
-                <div className="font-bold font-mono text-slate-200">news_momentum_v1</div>
+                <div className="font-bold font-mono text-slate-200">{latestDecision?.strategy_template_id || "news_momentum_v1"}</div>
               </div>
               <div className="bg-slate-950 p-2 rounded border border-slate-800 space-y-1 font-mono text-[11px]">
                 <div className="text-slate-400 text-[10px]">Evidence Alignment:</div>
@@ -338,6 +339,9 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
           <p className="text-sm font-medium">No Active Decision — Click "+ POSITIVE SIGNAL" above to simulate AAPL position creation.</p>
         </div>
       )}
+
+      {/* Decision Audit Trail */}
+      <AuditTrail decisions={decisions} />
     </div>
   );
 };

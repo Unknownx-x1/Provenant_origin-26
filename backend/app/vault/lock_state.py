@@ -1,9 +1,20 @@
+import time
 from typing import Optional
 from backend.app.schemas.contracts import Experiment, ExperimentStatus, VaultState
 from backend.app.research_sleeve.experiment import experiment_manager
 from backend.app.audit.ledger import ledger
 
 class VaultLockState:
+    def __init__(self):
+        self.last_hardware_heartbeat: float = 0.0
+
+    def register_hardware_heartbeat(self):
+        self.last_hardware_heartbeat = time.time()
+
+    def is_hardware_connected(self) -> bool:
+        # Physical device is considered CONNECTED only if polled within 5 seconds
+        return (time.time() - self.last_hardware_heartbeat) < 5.0
+
     def check_lock(self, experiment_id: str) -> Optional[VaultState]:
         experiment = experiment_manager.update_countdown(experiment_id)
         if not experiment:
@@ -23,7 +34,7 @@ class VaultLockState:
             commit_hash_full=full_hash,
             oos_sharpe=oos_sharpe,
             p_value=p_val,
-            hardware_connected=True  # Hardware polling endpoint checks this
+            hardware_connected=self.is_hardware_connected()
         )
 
     def reject_configuration_change(self, experiment: Experiment) -> bool:
