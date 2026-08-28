@@ -4,7 +4,7 @@ from backend.app.schemas.contracts import Experiment, ExperimentStatus, Promotio
 from backend.app.audit.ledger import ledger
 
 class ExperimentManager:
-    def start_commit(self, experiment: Experiment, commit_hash: str, lock_duration_sec: int = 60) -> Experiment:
+    def start_commit(self, experiment: Experiment, commit_hash: str, lock_duration_sec: int = 10) -> Experiment:
         now = datetime.now(timezone.utc)
         until = now + timedelta(seconds=lock_duration_sec)
         
@@ -16,6 +16,7 @@ class ExperimentManager:
         
         ledger.save_experiment(experiment)
         return experiment
+
 
     def update_countdown(self, experiment_id: str) -> Optional[Experiment]:
         experiment = ledger.get_experiment(experiment_id)

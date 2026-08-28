@@ -150,10 +150,11 @@ async def test_full_autonomous_closed_loop_workflow():
     )
     assert len(commit_hash) == 64  # Valid SHA-256 hex string
 
-    locked_exp = experiment_manager.start_commit(experiment, commit_hash, lock_duration_sec=60)
+    locked_exp = experiment_manager.start_commit(experiment, commit_hash, lock_duration_sec=10)
     assert locked_exp.status == ExperimentStatus.LOCKED
     assert locked_exp.commit_hash == commit_hash
-    assert locked_exp.seconds_remaining == 60
+    assert locked_exp.seconds_remaining == 10
+
 
     # ---------------------------------------------------------
     # 7. CALCULATED WALK-FORWARD BACKTEST & OOS VALIDATION

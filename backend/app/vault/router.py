@@ -32,8 +32,9 @@ async def commit_experiment(req: CommitRequest):
         experiment.parameters
     )
     
-    lock_sec = req.lock_duration_sec if req.lock_duration_sec is not None else 60
+    lock_sec = req.lock_duration_sec if req.lock_duration_sec is not None else config.experiment_lock_duration_sec
     experiment_manager.start_commit(experiment, commit_hash=commit_hash, lock_duration_sec=lock_sec)
+
     
     state = vault_lock_state.check_lock(experiment.experiment_id)
     await broadcaster.broadcast("VAULT_STATE", state.dict())

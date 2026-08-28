@@ -23,15 +23,18 @@ class AIClient:
         if not self.client:
             return fallback_text
         try:
-            response = await self.client.chat.completions.create(
+            import asyncio
+            coro = self.client.chat.completions.create(
                 model="groq/compound",
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=150
             )
+            response = await asyncio.wait_for(coro, timeout=1.5)
             if response and response.choices and response.choices[0].message.content:
                 return response.choices[0].message.content.strip()
         except Exception as e:
-            logger.warning(f"Groq API call failed, returning fallback: {e}")
+            logger.warning(f"Groq API call skipped/fallback used: {e}")
         return fallback_text
+
 
 ai_client = AIClient()

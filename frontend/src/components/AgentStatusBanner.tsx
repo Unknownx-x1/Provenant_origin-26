@@ -22,10 +22,11 @@ export const AgentStatusBanner: React.FC<AgentStatusBannerProps> = ({
         badge: '🔐 VAULT LOCKED',
         badgeBg: 'bg-purple-100 text-purple-700 border-purple-300',
         title: `VAULT LOCKED — ${remainingSec < 10 ? `00:0${remainingSec}` : `00:${remainingSec}`} REMAINING`,
-        narrative: "Experiment parameters are cryptographically committed. Waiting for the 60-second lock to expire before walk-forward testing.",
+        narrative: "Experiment parameters are cryptographically committed. Waiting for the 10-second lock to expire before walk-forward testing.",
         icon: Lock,
         isLock: true
       };
+
     }
 
     switch (phase) {

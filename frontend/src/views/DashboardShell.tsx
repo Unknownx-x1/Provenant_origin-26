@@ -106,12 +106,13 @@ export const DashboardShell: React.FC = () => {
       await fetch(`${BACKEND_URL}/vault/commit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ experiment_id: expId, lock_duration_sec: 60 }),
+        body: JSON.stringify({ experiment_id: expId, lock_duration_sec: 10 }),
       });
     } catch (e) {
       console.error('Vault commit failed', e);
     }
   };
+
 
   const handleReveal = async (expId: string) => {
     try {

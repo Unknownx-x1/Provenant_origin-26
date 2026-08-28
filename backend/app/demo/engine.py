@@ -6,7 +6,9 @@ from backend.app.schemas.contracts import (
     Decision, DecisionStatus, EvidenceNode, EvidenceType, FailureEvent, InvalidationCause, RegimeType,
     ResearchTrigger, Experiment, ExperimentStatus, PromotionStatus, StrategyPoolEntry
 )
+from backend.app.config import config
 from backend.app.audit.ledger import ledger
+
 from backend.app.ws.broadcaster import broadcaster
 from backend.app.ingestion.event_bus import event_bus
 from backend.app.ingestion.news_injector import inject_news
@@ -302,16 +304,17 @@ class AutonomousDemoEngine:
             await broadcaster.broadcast("EXPERIMENT_CREATED", exp.model_dump())
 
         elif phase == 11:
-            # Phase 11: Vault Commit & Lock (Real 60s Lock)
+            # Phase 11: Vault Commit & Lock (Real 10s Lock)
             if self.current_experiment:
                 commit_hash = vault_commit_engine.compute_experiment_hash(
                     self.current_experiment.hypothesis,
                     self.current_experiment.strategy_template_id,
                     self.current_experiment.parameters
                 )
-                exp = experiment_manager.start_commit(self.current_experiment, commit_hash=commit_hash, lock_duration_sec=60)
-                self.log_activity("VAULT LOCK ENFORCED", f"Experiment {exp.experiment_id} committed & locked for 60s (SHA-256: {commit_hash[:8]}...). Parameters frozen.", category="vault")
+                exp = experiment_manager.start_commit(self.current_experiment, commit_hash=commit_hash, lock_duration_sec=config.experiment_lock_duration_sec)
+                self.log_activity("VAULT LOCK ENFORCED", f"Experiment {exp.experiment_id} committed & locked for 10s (SHA-256: {commit_hash[:8]}...). Parameters frozen.", category="vault")
                 await broadcaster.broadcast("EXPERIMENT_UPDATE", exp.model_dump())
+
 
         elif phase == 12:
             # Phase 12: Calculated Historical Backtest (Unlock check)

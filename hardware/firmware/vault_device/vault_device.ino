@@ -67,9 +67,14 @@ String stateUrl() {
   return String(VAULT_BACKEND_BASE_URL) + "/vault/state/" + VAULT_EXPERIMENT_ID;
 }
 
+String currentExperimentId = "latest";
+
 String experimentLabel() {
-  String id = VAULT_EXPERIMENT_ID;
-  if (id.startsWith("exp-")) {
+  String id = currentExperimentId;
+  if (id == "latest") {
+    id = VAULT_EXPERIMENT_ID;
+  }
+  if (id.startsWith("exp-") || id.startsWith("exp_")) {
     id.remove(0, 4);
     return "EXP #" + id;
   }
@@ -85,6 +90,7 @@ String formatCountdown(int totalSeconds) {
   snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, seconds);
   return String(buffer);
 }
+
 
 void title(const char* text, uint16_t color) {
   StickCP2.Display.fillScreen(TFT_BLACK);
@@ -255,6 +261,10 @@ bool applyServerPayload(const String& payload) {
     return false;
   }
 
+  if (document.containsKey("experiment_id")) {
+    currentExperimentId = String(document["experiment_id"] | "latest");
+  }
+
   secondsRemaining = document["seconds_remaining"] | 0;
   commitHashShort = String(document["commit_hash_short"] | "");
   oosSharpe = document["oos_sharpe"].isNull()
@@ -265,15 +275,14 @@ bool applyServerPayload(const String& payload) {
                : String(document["p_value"].as<float>(), 3);
 
   const char* state = document["state"] | "";
-  // This is the entire state machine: map the server's string to a renderer.
-  // No transition is calculated from elapsed device time.
+  // Map server's contract string to M5 display state verbatim:
   if (strcmp(state, "committing") == 0) {
     displayState = DisplayState::COMMITTING;
     verifiedAcknowledged = false;
   } else if (strcmp(state, "locked") == 0) {
     displayState = DisplayState::LOCKED;
     verifiedAcknowledged = false;
-  } else if (strcmp(state, "revealing") == 0) {
+  } else if (strcmp(state, "testing") == 0 || strcmp(state, "revealing") == 0) {
     displayState = DisplayState::REVEALING;
     verifiedAcknowledged = false;
   } else if (strcmp(state, "verified") == 0) {
@@ -283,6 +292,9 @@ bool applyServerPayload(const String& payload) {
       verifiedAt = millis();
       recordVerifiedExperiment();
     }
+  } else if (strcmp(state, "waiting") == 0 || strcmp(state, "created") == 0 || strcmp(state, "idle") == 0 || strlen(state) == 0) {
+    displayState = DisplayState::WAITING;
+    verifiedAcknowledged = false;
   } else {
     return false;
   }
@@ -291,8 +303,11 @@ bool applyServerPayload(const String& payload) {
   return true;
 }
 
+
 bool pollBackend() {
   HTTPClient http;
+  http.setTimeout(1500); // 1.5s fast timeout to prevent blocking
+  http.setReuse(true);
   if (!http.begin(stateUrl())) {
     return false;
   }
@@ -310,6 +325,7 @@ bool pollBackend() {
   http.end();
   return responseCode == HTTP_CODE_OK && applyServerPayload(payload);
 }
+
 
 void beginWifi() {
   WiFi.mode(WIFI_STA);

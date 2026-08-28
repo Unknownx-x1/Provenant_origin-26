@@ -18,8 +18,9 @@ def test_vault_sha256_and_lock_rejection():
     assert hash1 == hash2  # Deterministic SHA-256
     
     # Start lock
-    experiment_manager.start_commit(exp, hash1, lock_duration_sec=60)
+    experiment_manager.start_commit(exp, hash1, lock_duration_sec=10)
     assert exp.status == ExperimentStatus.LOCKED
+
     
     # Assert configuration change is rejected server-side while locked
     is_rejected = vault_lock_state.reject_configuration_change(exp)

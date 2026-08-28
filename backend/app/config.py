@@ -17,6 +17,6 @@ class BoundaryConfig(BaseModel):
     min_oos_sharpe: float = 0.8
     max_p_value: float = 0.05
     max_decay_pct: float = 0.15
-    experiment_lock_duration_sec: int = 60  # 60 seconds lock for hardware demo
+    experiment_lock_duration_sec: int = 10  # 10 seconds lock for hardware demo
 
 config = BoundaryConfig()

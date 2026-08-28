@@ -12,7 +12,8 @@ export const StockChartCard: React.FC<StockChartCardProps> = ({
   marketTick,
   priceHistory = []
 }) => {
-  const [timeframe, setTimeframe] = useState<'5m' | '15m' | '1h'>('5m');
+  const [timeframe, setTimeframe] = useState<'5s' | '10s' | '15s'>('10s');
+
 
   const price = marketTick?.price ?? 227.65;
   const changePct = marketTick?.change_pct ?? 1.18;

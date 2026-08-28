@@ -14,12 +14,15 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
   volume,
   priceHistory = []
 }) => {
-  const [timeframe, setTimeframe] = useState<'30s' | '1m' | '5m'>('1m');
+  const [timeframe, setTimeframe] = useState<'5s' | '10s' | '15s'>('10s');
 
   const displayPrice = price ?? 228.40;
   const displayChange = changePct ?? 1.18;
   const displayVolume = volume ?? "7.45M";
-  const chartData = priceHistory;
+  
+  // Filter history based on selected timeframe
+  const sliceCount = timeframe === '5s' ? 10 : timeframe === '10s' ? 20 : 30;
+  const chartData = priceHistory.slice(-sliceCount);
   
   const prices = chartData.map((d) => d.price);
   const minPrice = prices.length > 0 ? Math.floor(Math.min(...prices) - 1.0) : 225.0;
@@ -64,9 +67,9 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
             <strong className="text-blue-600 font-semibold">HIGH VOLATILITY</strong>
           </div>
 
-          {/* Timeframe Selector */}
+          {/* Timeframe Selector (5s, 10s, 15s) */}
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
-            {(['30s', '1m', '5m'] as const).map((tf) => (
+            {(['5s', '10s', '15s'] as const).map((tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
@@ -80,6 +83,7 @@ export const StockMarketGraph: React.FC<StockMarketGraphProps> = ({
           </div>
         </div>
       </div>
+
 
 
       {/* Clean White Area Chart */}
