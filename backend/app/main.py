@@ -21,7 +21,9 @@ from backend.app.outcomes.monitor import outcome_monitor
 from backend.app.research_sleeve.pattern_detector import pattern_detector
 from backend.app.research_sleeve.hypothesis import hypothesis_engine
 from backend.app.vault.commit import vault_commit_engine
+from backend.app.vault.lock_state import vault_lock_state
 from backend.app.research_sleeve.experiment import experiment_manager
+
 from backend.app.research_sleeve.strategy_pool import strategy_pool_manager
 from backend.app.audit.ledger import ledger
 from backend.app.demo.engine import demo_engine, PHASE_NAMES
@@ -63,6 +65,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "market_tick": current_market_tick,
                 "price_history": market_price_history,
                 "market_interval": current_market_tick.get("interval_sec", 10.0),
+                "hardware_connected": vault_lock_state.is_hardware_connected(),
                 "demo_state": {
                     "current_phase": demo_engine.current_phase,
                     "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
@@ -82,17 +85,20 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/api/health")
 async def get_health():
+    is_hw = vault_lock_state.is_hardware_connected()
     return {
         "backend_status": "ONLINE",
         "websocket_status": "LIVE" if len(broadcaster.active_connections) > 0 else "IDLE",
         "market_status": "ACTIVE",
-        "hardware_status": "OFFLINE",
+        "hardware_status": "ONLINE" if is_hw else "OFFLINE",
+        "hardware_connected": is_hw,
         "agent_status": "RUNNING" if demo_engine.autonomous_mode else "IDLE",
         "current_phase": demo_engine.current_phase,
         "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
         "active_stock": demo_engine.active_stock,
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
+
 
 @app.get("/api/config")
 async def get_config():

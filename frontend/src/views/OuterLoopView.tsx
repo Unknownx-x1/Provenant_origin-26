@@ -10,6 +10,7 @@ interface OuterLoopViewProps {
   onCommit: (expId: string) => void;
   onReveal: (expId: string) => void;
   onSpeak?: (text: string) => void;
+  hardwareConnected?: boolean;
 }
 
 export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
@@ -18,8 +19,10 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
   strategyPool,
   onCommit,
   onReveal,
-  onSpeak
+  onSpeak,
+  hardwareConnected = false
 }) => {
+
   const latestTrigger = triggers[0];
   const latestExperiment = experiments[0];
   const activeStrategies = strategyPool;
@@ -103,8 +106,9 @@ export const OuterLoopView: React.FC<OuterLoopViewProps> = ({
 
         {/* Stage 3: Hardware Vault */}
         <div className="md:col-span-1">
-          <VaultTimer experiment={latestExperiment} onCommit={onCommit} onReveal={onReveal} />
+          <VaultTimer experiment={latestExperiment} onCommit={onCommit} onReveal={onReveal} hardwareConnected={hardwareConnected} />
         </div>
+
 
         {/* Stage 4: OOS Validation */}
         <div className={`border rounded-2xl p-4 flex flex-col justify-between transition ${

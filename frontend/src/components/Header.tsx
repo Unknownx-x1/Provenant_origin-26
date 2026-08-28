@@ -5,12 +5,14 @@ import { DemoState } from '../ws/useLiveFeed';
 interface HeaderProps {
   demoState: DemoState;
   connected: boolean;
+  hardwareConnected?: boolean;
   onToggleAuto: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   demoState,
   connected,
+  hardwareConnected = false,
   onToggleAuto
 }) => {
   return (
@@ -42,10 +44,15 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
 
         {/* Hardware Truthful Presence Pill */}
-        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border font-mono bg-slate-100 text-slate-600 border-slate-200">
-          <Cpu className="w-3 h-3 text-slate-400" />
-          M5STICK: OFFLINE
+        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border font-mono transition ${
+          hardwareConnected
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs'
+            : 'bg-slate-100 text-slate-600 border-slate-200'
+        }`}>
+          <Cpu className={`w-3 h-3 ${hardwareConnected ? 'text-emerald-600' : 'text-slate-400'}`} />
+          M5STICK: {hardwareConnected ? 'ONLINE' : 'OFFLINE'}
         </span>
+
 
         {/* Vault Enforced Pill */}
         <span className="px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border font-mono bg-purple-50 text-purple-700 border-purple-200">

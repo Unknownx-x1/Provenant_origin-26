@@ -16,7 +16,8 @@ const BACKEND_URL = 'http://127.0.0.1:8000';
 
 export const DashboardShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, marketInterval, setMarketInterval, demoState } = useLiveFeed();
+  const { connected, hardwareConnected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, marketInterval, setMarketInterval, demoState } = useLiveFeed();
+
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window && demoState.voice_enabled) {
@@ -148,6 +149,7 @@ export const DashboardShell: React.FC = () => {
             onCommit={handleCommit}
             onReveal={handleReveal}
             onSpeak={speakText}
+            hardwareConnected={hardwareConnected}
           />
         );
       case 'performance':
@@ -186,8 +188,10 @@ export const DashboardShell: React.FC = () => {
         <Header
           demoState={demoState}
           connected={connected}
+          hardwareConnected={hardwareConnected}
           onToggleAuto={handleStartAuto}
         />
+
 
         {/* 3. Demo Control Toolbar Bar */}
         <div className="bg-white border-b border-slate-200/80 px-8 py-3 flex flex-wrap items-center justify-between gap-4 font-sans text-xs shadow-2xs">

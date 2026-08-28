@@ -25,8 +25,10 @@ export const VaultTimer: React.FC<VaultTimerProps> = ({
           <span className="text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full border border-purple-100">
             Vault: Enforced
           </span>
-          <span className="text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-full">
-            M5Stick: Offline
+          <span className={`font-semibold px-2 py-0.5 rounded-full ${
+            hardwareConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          }`}>
+            M5Stick: {hardwareConnected ? 'Online' : 'Offline'}
           </span>
         </div>
       </div>
@@ -45,11 +47,14 @@ export const VaultTimer: React.FC<VaultTimerProps> = ({
           <span className="text-purple-700 font-bold bg-purple-100 px-2 py-0.5 rounded-full">
             Vault: Enforced
           </span>
-          <span className="bg-slate-100 text-slate-500 font-medium px-2 py-0.5 rounded-full">
-            M5Stick: Offline
+          <span className={`font-semibold px-2 py-0.5 rounded-full ${
+            hardwareConnected ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+          }`}>
+            M5Stick: {hardwareConnected ? 'Online' : 'Offline'}
           </span>
         </div>
       </div>
+
 
       <div className="bg-slate-900 text-white rounded-xl p-3 text-center relative font-mono">
         {experiment.status === 'CREATED' && (

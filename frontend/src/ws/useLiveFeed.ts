@@ -120,11 +120,13 @@ export interface MarketTick {
 
 export function useLiveFeed() {
   const [connected, setConnected] = useState(false);
+  const [hardwareConnected, setHardwareConnected] = useState(false);
   const [decisions, setDecisions] = useState<Decision[]>([]);
   const [triggers, setTriggers] = useState<ResearchTrigger[]>([]);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [strategyPool, setStrategyPool] = useState<StrategyPoolEntry[]>([]);
   const [marketInterval, setMarketIntervalState] = useState<'5s' | '10s' | '30s'>('10s');
+
   
   const [marketTick, setMarketTick] = useState<MarketTick>({
     asset: 'AAPL',
@@ -255,7 +257,15 @@ export function useLiveFeed() {
                 displayedLogRef.current = data.demo_state.activity_log;
               }
             }
-          } else if (type === 'MARKET_TICK') {
+            if (typeof data.hardware_connected === 'boolean') {
+              setHardwareConnected(data.hardware_connected);
+            }
+          } else if (type === 'HARDWARE_STATUS' || type === 'VAULT_STATE') {
+            if (typeof data.hardware_connected === 'boolean') {
+              setHardwareConnected(data.hardware_connected);
+            }
+          }
+ else if (type === 'MARKET_TICK') {
             setMarketTick(data);
             const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
             setPriceHistory((prev) => [...prev.slice(-25), { time: timeStr, price: data.price }]);
@@ -347,7 +357,23 @@ export function useLiveFeed() {
 
     connect();
 
+    // Poll health check every 3s to maintain accurate hardware heartbeat
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/health');
+        if (res.ok) {
+          const health = await res.json();
+          if (typeof health.hardware_connected === 'boolean') {
+            setHardwareConnected(health.hardware_connected);
+          }
+        }
+      } catch (e) {
+        // Backend temporarily down
+      }
+    }, 3000);
+
     return () => {
+      clearInterval(pollInterval);
       if (timerId) clearTimeout(timerId);
       if (wsRef.current) wsRef.current.close();
     };
@@ -355,6 +381,7 @@ export function useLiveFeed() {
 
   return {
     connected,
+    hardwareConnected,
     decisions,
     triggers,
     experiments,
@@ -366,5 +393,6 @@ export function useLiveFeed() {
     demoState
   };
 }
+
 
 
