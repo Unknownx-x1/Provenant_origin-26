@@ -12,7 +12,7 @@ class WebSocketBroadcaster:
         self.active_connections.add(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        self.active_connections.discard(websocket)
 
     async def broadcast(self, event_type: str, data: dict):
         if not self.active_connections:

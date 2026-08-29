@@ -10,6 +10,7 @@ from backend.app.decisions.validity_engine import update_decision_validity, calc
 from backend.app.decisions.actions import determine_action
 from backend.app.execution.validator import execution_validator
 from backend.app.execution.executor import executor
+from backend.app.config import config
 from backend.app.audit.ledger import ledger
 from backend.app.ws.broadcaster import broadcaster
 from backend.app.outcomes.monitor import outcome_monitor
@@ -20,6 +21,9 @@ class DecisionEngine:
         self.active_decision: Optional[Decision] = None
 
     async def handle_opportunity(self, opp: dict) -> Optional[Decision]:
+        initial_action = str(opp.get("action", "HOLD")).upper()
+        if initial_action not in {"BUY", "SELL"}:
+            return None
         # 1. Risk Evaluation
         risk_res = evaluate_risk(opp)
         if not risk_res.get("approved"):
@@ -30,7 +34,7 @@ class DecisionEngine:
         if not alloc_res.get("allocated"):
             return None
 
-        allocation = alloc_res.get("allocation", 0.20)
+        allocation = alloc_res["allocation"]
         decision_id = f"dec_{uuid.uuid4().hex[:6]}"
         nodes: List[EvidenceNode] = opp.get("evidence_nodes", [])
 
@@ -39,21 +43,21 @@ class DecisionEngine:
             decision_id=decision_id,
             opportunity_id=opp.get("opportunity_id", f"opp_{decision_id}"),
             asset=opp.get("asset", "AAPL"),
-            action=opp.get("action", "BUY"),
+            action=initial_action,
             evidence_nodes=nodes,
-            validity_score=0.91,
+            validity_score=0.0,
             validity_threshold=calculate_adaptive_threshold("HIGH_VOLATILITY"),
             status=DecisionStatus.OPEN,
             strategy_template_id=opp.get("strategy_template_id", "news_momentum_v1"),
             allocation=allocation,
-            explanation="Autonomous BUY decision formulated from aligned news, RSI momentum, and orderbook depth."
+            explanation=f"Autonomous {initial_action} decision formulated from aligned news, momentum, and orderbook evidence."
         )
 
         # Initial validity score recompute
         update_decision_validity(decision, "HIGH_VOLATILITY")
 
         # 4. Execution Validation & Simulation
-        requested_amount_usd = allocation * 100000.0  # e.g. $20,000
+        requested_amount_usd = allocation * config.max_capital
         val_res = execution_validator.validate_execution(decision, requested_amount_usd)
         if not val_res.get("valid"):
             decision.status = DecisionStatus.CANCELLED
@@ -62,6 +66,7 @@ class DecisionEngine:
             return decision
 
         exec_res = await executor.execute_trade_action({
+            "decision_id": decision.decision_id,
             "action": decision.action,
             "asset": decision.asset,
             "allocation": allocation
@@ -79,14 +84,15 @@ class DecisionEngine:
             "status": "EXECUTED",
             "slippage_bps": exec_res.get("slippage_bps", 5)
         })
+        await event_bus.execution_events.put(exec_res)
 
         await event_bus.decision_events.put(decision)
         return decision
 
     async def handle_contradictory_evidence(self, node: Any) -> Optional[Decision]:
-        if not self.active_decision or self.active_decision.status != DecisionStatus.OPEN:
+        if not self.active_decision or self.active_decision.status not in {DecisionStatus.OPEN, DecisionStatus.REDUCED}:
             # Check latest decision in ledger if active_decision is not set
-            if ledger.decisions and ledger.decisions[-1].status == DecisionStatus.OPEN:
+            if ledger.decisions and ledger.decisions[-1].status in {DecisionStatus.OPEN, DecisionStatus.REDUCED}:
                 self.active_decision = ledger.decisions[-1]
             else:
                 return None
@@ -126,21 +132,40 @@ class DecisionEngine:
         new_score = update_decision_validity(decision, "HIGH_VOLATILITY")
         action = determine_action(decision)
 
-        if action == "REVERSE":
+        if action == "REDUCE":
+            exec_res = await executor.execute_trade_action({
+                "decision_id": decision.decision_id,
+                "action": "REDUCE",
+                "asset": decision.asset,
+                "current_action": decision.action,
+                "current_allocation": decision.allocation,
+            })
+            decision.allocation = exec_res["filled_allocation"]
+            decision.status = DecisionStatus.REDUCED
+            decision.explanation = f"Exposure reduced after validity fell from {old_score:.2f} to {new_score:.2f}."
+            await broadcaster.broadcast("DECISION_UPDATE", decision.model_dump())
+            await broadcaster.broadcast("EXECUTION_UPDATE", {**exec_res, "status": "REDUCED"})
+            await event_bus.execution_events.put(exec_res)
+        elif action == "REVERSE":
             decision.status = DecisionStatus.REVERSED
             decision.explanation = (
-                f"The BUY decision was invalidated because supporting news evidence was contradicted "
+                f"The {decision.action} decision was invalidated because supporting news evidence was contradicted "
                 f"by: '{headline}'. Validity dropped from {old_score:.2f} to {new_score:.2f} "
                 f"(below adaptive threshold {decision.validity_threshold:.2f}). "
-                f"Position was automatically REVERSED to SELL {decision.asset}."
+                f"Position was automatically REVERSED."
             )
 
             # Execute reversal paper trade
             exec_res = await executor.execute_trade_action({
-                "action": "SELL",
+                "decision_id": decision.decision_id,
+                "action": "REVERSE",
                 "asset": decision.asset,
-                "allocation": decision.allocation
+                "current_action": decision.action,
+                "current_allocation": decision.allocation,
+                "allocation": decision.allocation,
             })
+            decision.action = exec_res["resulting_action"]
+            decision.allocation = exec_res["filled_allocation"]
 
             ledger.log_decision(decision)
             self.active_decision = None
@@ -149,12 +174,13 @@ class DecisionEngine:
             await broadcaster.broadcast("DECISION_UPDATE", decision.model_dump())
             await broadcaster.broadcast("EXECUTION_UPDATE", {
                 "decision_id": decision.decision_id,
-                "action": "SELL",
+                "action": decision.action,
                 "asset": decision.asset,
                 "allocation": decision.allocation,
                 "status": "REVERSED",
                 "slippage_bps": exec_res.get("slippage_bps", 5)
             })
+            await event_bus.execution_events.put(exec_res)
 
             # Process invalidation outcome -> triggers FailureEvent and PatternDetector
             outcome_res = await outcome_monitor.process_decision_update(decision)

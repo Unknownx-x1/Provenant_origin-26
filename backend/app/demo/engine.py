@@ -29,7 +29,7 @@ from backend.app.research_sleeve.backtest import backtest_engine
 from backend.app.research_sleeve.validation import validation_engine
 from backend.app.research_sleeve.promotion_gate import promotion_gate
 from backend.app.research_sleeve.strategy_pool import strategy_pool_manager
-from backend.app.opportunities.generator import reset_opportunity_state, set_opportunity_active
+from backend.app.opportunities.generator import determine_initial_action, reset_opportunity_state, set_opportunity_active
 from backend.app.ai.voice import voice_service
 
 PHASE_NAMES = [
@@ -62,7 +62,7 @@ class AutonomousDemoEngine:
 
     def log_activity(self, title: str, description: str, category: str = "system") -> Dict[str, Any]:
         entry = {
-            "timestamp": datetime.now(timezone.utc).strftime("%H:%M:%S"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "title": title,
             "description": description,
             "category": category,
@@ -106,7 +106,6 @@ class AutonomousDemoEngine:
                 impact="SUPPORTS BUY AAPL",
                 status="ACTIVE"
             )
-            await evidence_processor.process_market_event(news_event)
             await evidence_processor.process_market_event({"type": "price", "asset": "AAPL", "rsi": 64.2})
             await evidence_processor.process_market_event({"type": "orderbook", "asset": "AAPL", "bid_volume": 8500, "ask_volume": 4200})
 
@@ -167,16 +166,18 @@ class AutonomousDemoEngine:
                 )
             ]
 
+            initial_action, signal_strength = determine_initial_action(nodes)
             opp = {
                 "opportunity_id": f"opp_{uuid.uuid4().hex[:6]}",
                 "asset": "AAPL",
-                "action": "BUY",
+                "action": initial_action,
+                "signal_strength": signal_strength,
                 "evidence_nodes": nodes,
                 "strategy_template_id": active_strat
             }
             decision = await decision_engine.handle_opportunity(opp)
             if decision:
-                self.log_activity("Autonomous Decision", f"BUY AAPL created (Validity: {decision.validity_score:.2f}, Threshold: {decision.validity_threshold:.2f}, Alloc: 20%).", category="decision")
+                self.log_activity("Autonomous Decision", f"{decision.action} AAPL created (Validity: {decision.validity_score:.2f}, Threshold: {decision.validity_threshold:.2f}, Alloc: {decision.allocation:.1%}).", category="decision")
 
         elif phase == 4:
             # Phase 4: Continuous Monitoring
@@ -188,6 +189,7 @@ class AutonomousDemoEngine:
 
         elif phase == 5:
             # Phase 5: Contradictory News Evidence Injected
+            latest_decision = ledger.decisions[-1] if ledger.decisions else None
             news_event = await inject_news(
                 asset="AAPL",
                 headline="Apple cuts revenue guidance amid weaker iPhone demand",
@@ -197,10 +199,9 @@ class AutonomousDemoEngine:
                 weight=0.35,
                 impact="CONTRADICTS BUY AAPL",
                 status="CONTRADICTED",
-                contradicts="latest"
+                contradicts="latest",
+                decision_id=latest_decision.decision_id if latest_decision else None
             )
-            node = await evidence_processor.process_market_event(news_event)
-            latest_decision = ledger.decisions[-1] if ledger.decisions else None
 
             if latest_decision:
                 # Update evidence node freshness and recalculate
@@ -227,29 +228,39 @@ class AutonomousDemoEngine:
             latest_decision = ledger.decisions[-1] if ledger.decisions else None
             if latest_decision:
                 action = determine_action(latest_decision)
-                if action == "REVERSE":
+                if action == "REDUCE":
+                    exec_res = await executor.execute_trade_action({"decision_id": latest_decision.decision_id, "action": "REDUCE", "asset": latest_decision.asset, "current_action": latest_decision.action, "current_allocation": latest_decision.allocation})
+                    latest_decision.allocation = exec_res["filled_allocation"]
+                    latest_decision.status = DecisionStatus.REDUCED
+                    latest_decision.explanation = "Exposure reduced because validity entered the configured reduce range."
+                    await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
+                    await broadcaster.broadcast("EXECUTION_UPDATE", {**exec_res, "status": "REDUCED"})
+                    await event_bus.execution_events.put(exec_res)
+                elif action == "REVERSE":
                     latest_decision.status = DecisionStatus.REVERSED
-                    exec_res = await executor.execute_trade_action({"action": "SELL", "asset": "AAPL", "allocation": latest_decision.allocation})
+                    exec_res = await executor.execute_trade_action({"decision_id": latest_decision.decision_id, "action": "REVERSE", "asset": latest_decision.asset, "current_action": latest_decision.action, "current_allocation": latest_decision.allocation, "allocation": latest_decision.allocation})
+                    latest_decision.action = exec_res["resulting_action"]
                     latest_decision.explanation = (
                         f"The BUY decision was invalidated because supporting news evidence was contradicted. "
                         f"Validity dropped to {latest_decision.validity_score:.2f} (below threshold {latest_decision.validity_threshold:.2f}). "
-                        f"Position was automatically REVERSED to SELL AAPL."
+                        f"Position was automatically REVERSED to {latest_decision.action} {latest_decision.asset}."
                     )
                     ledger.log_decision(latest_decision)
                     self.log_activity(
                         "AUTONOMOUS ACTION",
-                        f"VALIDITY BREACHED ({latest_decision.validity_score:.2f} < {latest_decision.validity_threshold:.2f}) ➔ Position AUTOMATICALLY REVERSED (SELL AAPL fill at {exec_res['slippage_bps']}bps slippage).",
+                        f"VALIDITY BREACHED ({latest_decision.validity_score:.2f} < {latest_decision.validity_threshold:.2f}) ➔ Position AUTOMATICALLY REVERSED ({latest_decision.action} {latest_decision.asset} fill at {exec_res['slippage_bps']}bps slippage).",
                         category="action"
                     )
                     await broadcaster.broadcast("DECISION_UPDATE", latest_decision.model_dump())
                     await broadcaster.broadcast("EXECUTION_UPDATE", {
                         "decision_id": latest_decision.decision_id,
-                        "action": "SELL",
-                        "asset": "AAPL",
+                        "action": latest_decision.action,
+                        "asset": latest_decision.asset,
                         "allocation": latest_decision.allocation,
                         "status": "REVERSED",
                         "slippage_bps": exec_res["slippage_bps"]
                     })
+                    await event_bus.execution_events.put(exec_res)
 
         elif phase == 7:
             # Phase 7: Failure Recording
@@ -395,6 +406,8 @@ class AutonomousDemoEngine:
         self.pause_autonomous()
         ledger.reset()
         reset_opportunity_state()
+        from backend.app.ingestion.news_injector import reset_news_history
+        reset_news_history()
         self.current_phase = 1
         self.activity_log.clear()
         self.current_experiment = None

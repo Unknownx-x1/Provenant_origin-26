@@ -12,6 +12,12 @@ class BoundaryConfig(BaseModel):
     max_exposure_per_asset: float = 25000.0  # USD max position limit
     risk_limit_max_downside: float = 0.05  # 5% max downside limit
     max_transaction_cost_pct: float = 0.002  # 20 bps
+    max_allocation_pct: float = 0.20
+    min_allocation_pct: float = 0.05
+    hold_threshold_high_vol: float = 0.60
+    hold_threshold_default: float = 0.45
+    reduce_threshold_ratio: float = 0.75
+    reduce_allocation_factor: float = 0.50
     
     # Statistical Promotion Gate Thresholds
     min_oos_sharpe: float = 0.8

@@ -1,10 +1,13 @@
+from backend.app.config import config
+
 def determine_action(decision) -> str:
-    validity = getattr(decision, "validity_score", 0.91)
-    threshold = getattr(decision, "validity_threshold", 0.60)
+    validity = getattr(decision, "validity_score", 0.0)
+    threshold = getattr(decision, "validity_threshold", config.hold_threshold_high_vol)
+    reduce_threshold = threshold * config.reduce_threshold_ratio
 
     if validity >= threshold:
         return "HOLD"
-    if validity >= threshold * 0.75:
+    if validity >= reduce_threshold:
         return "REDUCE"
     return "REVERSE"
 

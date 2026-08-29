@@ -116,3 +116,30 @@ This document specifies the exact JSON schemas and Pydantic models shared betwee
   "p_value": 0.018
 }
 ```
+
+---
+
+## 6. Market News WebSocket Event
+
+The backend emits a `MARKET_NEWS` WebSocket message as soon as a news item is
+injected, whether it comes from the autonomous demo or `POST /api/market/inject-news`.
+
+```json
+{
+  "type": "MARKET_NEWS",
+  "data": {
+    "type": "news",
+    "asset": "AAPL",
+    "headline": "Apple cuts revenue guidance amid weaker iPhone demand",
+    "source": "Reuters (Simulated)",
+    "sentiment": "negative",
+    "timestamp": "2026-08-29T16:00:00+00:00",
+    "contradicts": "dec_123abc",
+    "decision_id": "dec_123abc"
+  }
+}
+```
+
+`source`, `contradicts`, and `decision_id` are optional. The `INITIAL_STATE`
+payload provides `latest_market_news` (or `null`) and newest-first
+`market_news_history`; reset clears this history before emitting `RESET`.

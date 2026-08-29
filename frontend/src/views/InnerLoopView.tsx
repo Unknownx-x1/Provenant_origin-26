@@ -3,10 +3,11 @@ import {
   Activity, ShieldAlert, Cpu, ArrowUpDown, TrendingUp, Newspaper,
   CheckCircle2, AlertTriangle, DollarSign, ShieldCheck, Zap, RefreshCw, BarChart2, Volume2, ChevronDown, ChevronUp, Info
 } from 'lucide-react';
-import { Decision, MarketTick } from '../ws/useLiveFeed';
+import { Decision, MarketNewsEvent, MarketTick } from '../ws/useLiveFeed';
 import { ValidityGauge } from '../components/ValidityGauge';
 import { AuditTrail } from '../components/AuditTrail';
 import { StockMarketGraph } from '../components/StockMarketGraph';
+import { MarketNewsFeed } from '../components/MarketNewsFeed';
 
 interface InnerLoopViewProps {
   decisions: Decision[];
@@ -15,6 +16,7 @@ interface InnerLoopViewProps {
   onInjectPositiveNews: () => void;
   onInjectFailure: () => void;
   onSpeak?: (text: string) => void;
+  marketNewsHistory?: MarketNewsEvent[];
 }
 
 export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
@@ -23,7 +25,8 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
   priceHistory = [],
   onInjectPositiveNews,
   onInjectFailure,
-  onSpeak
+  onSpeak,
+  marketNewsHistory = []
 }) => {
   const latestDecision = decisions[0];
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
@@ -43,6 +46,8 @@ export const InnerLoopView: React.FC<InnerLoopViewProps> = ({
         volume={marketTick?.volume ? `${(marketTick.volume / 1000000).toFixed(2)}M` : "7.45M"}
         priceHistory={priceHistory}
       />
+
+      <MarketNewsFeed newsHistory={marketNewsHistory} />
 
       {/* 2. Inner Loop DVE Header & 4-Stage Workflow Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">

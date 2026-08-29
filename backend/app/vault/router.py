@@ -44,6 +44,7 @@ async def commit_experiment(req: CommitRequest):
 async def get_vault_state(experiment_id: str):
     # Hardware heartbeat is registered whenever hardware polls this endpoint
     vault_lock_state.register_hardware_heartbeat()
+    await broadcaster.broadcast("HARDWARE_STATUS", vault_lock_state.hardware_status_payload())
 
     target_id = experiment_id
     if target_id == "latest" or target_id not in ledger.experiments:

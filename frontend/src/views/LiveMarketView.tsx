@@ -1,20 +1,23 @@
 import React from 'react';
 import { Activity, Clock, ShieldCheck, TrendingUp, BarChart2 } from 'lucide-react';
-import { MarketTick } from '../ws/useLiveFeed';
+import { MarketNewsEvent, MarketTick } from '../ws/useLiveFeed';
 import { StockMarketGraph } from '../components/StockMarketGraph';
+import { MarketNewsFeed } from '../components/MarketNewsFeed';
 
 interface LiveMarketViewProps {
   marketTick?: MarketTick;
   priceHistory?: Array<{ time: string; price: number }>;
   marketInterval?: '5s' | '10s' | '30s';
   onSetMarketInterval?: (interval: '5s' | '10s' | '30s') => void;
+  marketNewsHistory?: MarketNewsEvent[];
 }
 
 export const LiveMarketView: React.FC<LiveMarketViewProps> = ({
   marketTick,
   priceHistory = [],
   marketInterval = '10s',
-  onSetMarketInterval
+  onSetMarketInterval,
+  marketNewsHistory = []
 }) => {
   const price = marketTick?.price ?? 228.40;
   const changePct = marketTick?.change_pct ?? 1.18;
@@ -69,6 +72,8 @@ export const LiveMarketView: React.FC<LiveMarketViewProps> = ({
         volume={volume}
         priceHistory={priceHistory}
       />
+
+      <MarketNewsFeed newsHistory={marketNewsHistory} />
 
       {/* Orderbook Depth & Market Mechanics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

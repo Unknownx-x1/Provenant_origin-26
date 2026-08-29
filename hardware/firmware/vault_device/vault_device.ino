@@ -19,6 +19,7 @@
 namespace {
 
 constexpr uint32_t kPollIntervalMs = 1500;
+constexpr uint32_t kPollFailureGraceMs = 5000;
 constexpr uint32_t kWifiRetryIntervalMs = 10000;
 constexpr uint32_t kVerifiedScreenDurationMs = 3000;
 
@@ -49,6 +50,7 @@ String previousOosSharpe;
 String previousPValue;
 int secondsRemaining = 0;
 uint32_t lastPollAt = 0;
+uint32_t lastSuccessfulPollAt = 0;
 uint32_t lastWifiAttemptAt = 0;
 bool screenIsDrawn = false;
 DisplayState lastRenderedState = DisplayState::RECONNECTING;
@@ -306,8 +308,8 @@ bool applyServerPayload(const String& payload) {
 
 bool pollBackend() {
   HTTPClient http;
-  http.setTimeout(1500); // 1.5s fast timeout to prevent blocking
-  http.setReuse(true);
+  http.setTimeout(3000);
+  http.setReuse(false);
   if (!http.begin(stateUrl())) {
     return false;
   }
@@ -379,6 +381,7 @@ void loop() {
     // Network loss is visible immediately; a stale LOCK/VERIFIED screen is
     // never retained while the device cannot obtain backend-authoritative data.
     displayState = DisplayState::RECONNECTING;
+    backendConnected = false;
     render();
     if (millis() - lastWifiAttemptAt >= kWifiRetryIntervalMs) {
       WiFi.disconnect();
@@ -390,7 +393,10 @@ void loop() {
 
   if (millis() - lastPollAt >= kPollIntervalMs) {
     lastPollAt = millis();
-    if (!pollBackend()) {
+    if (pollBackend()) {
+      lastSuccessfulPollAt = millis();
+    } else if (millis() - lastSuccessfulPollAt >= kPollFailureGraceMs) {
+      backendConnected = false;
       displayState = DisplayState::RECONNECTING;
     }
     render();

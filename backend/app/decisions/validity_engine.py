@@ -1,10 +1,11 @@
 from backend.app.evidence.decay import get_effective_weight
+from backend.app.config import config
 
 def calculate_adaptive_threshold(regime: str = "HIGH_VOLATILITY") -> float:
     regime_upper = str(regime).upper()
     if "HIGH" in regime_upper or "VOLATILE" in regime_upper:
-        return 0.60
-    return 0.45
+        return config.hold_threshold_high_vol
+    return config.hold_threshold_default
 
 def calculate_validity(decision) -> float:
     nodes = getattr(decision, "evidence_nodes", [])

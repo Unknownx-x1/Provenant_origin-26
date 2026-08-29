@@ -1,4 +1,5 @@
 from typing import Dict, Any
+from backend.app.config import config
 
 STRATEGY_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "news_momentum_v1": {
@@ -8,7 +9,7 @@ STRATEGY_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "params": {
             "entry_mode": "immediate",
             "confirmation_delay_sec": 0,
-            "min_validity_threshold": 0.60
+            "min_validity_threshold": config.hold_threshold_high_vol
         },
         "status": "ACTIVE",
         "oos_sharpe": 1.10,
@@ -21,7 +22,7 @@ STRATEGY_TEMPLATES: Dict[str, Dict[str, Any]] = {
         "params": {
             "entry_mode": "delayed_confirmation",
             "confirmation_delay_sec": 300,
-            "min_validity_threshold": 0.60
+            "min_validity_threshold": config.hold_threshold_high_vol
         },
         "status": "PROMOTED",
         "oos_sharpe": 1.42,

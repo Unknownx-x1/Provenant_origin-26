@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
+from backend.app.config import config
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -75,10 +76,10 @@ class Decision(BaseModel):
     action: str = "BUY"  # BUY | SELL
     evidence_nodes: List[EvidenceNode]
     validity_score: float
-    validity_threshold: float = 0.60
+    validity_threshold: float = config.hold_threshold_high_vol
     status: DecisionStatus = DecisionStatus.OPEN
     strategy_template_id: str = "news_momentum_v1"
-    allocation: float = 0.20
+    allocation: float = config.min_allocation_pct
     explanation: Optional[str] = None
     created_at: str = Field(default_factory=utc_now_iso)
 

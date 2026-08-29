@@ -18,4 +18,5 @@ class EvidenceNodeInternal:
     impact: Optional[str] = None
     status: Optional[str] = "ACTIVE"
     value: Optional[Any] = None
+    asset: str = "AAPL"
 

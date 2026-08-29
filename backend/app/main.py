@@ -3,18 +3,20 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Literal, Optional, Dict, Any
 
 from backend.app.config import config
 from backend.app.schemas.contracts import (
     Decision, DecisionStatus, EvidenceNode, EvidenceType, ExperimentStatus
 )
 from backend.app.vault.router import router as vault_router
+from backend.app.vault.lock_state import hardware_status_monitor, vault_lock_state
 from backend.app.ws.broadcaster import broadcaster
 from backend.app.ingestion.simulator import (
     market_simulator, set_market_interval, current_market_tick, market_price_history, market_update_interval_sec
 )
-from backend.app.ingestion.news_injector import inject_news
+from backend.app.ingestion.news_injector import get_news_history, inject_news
+from backend.app.ingestion.market_event_worker import market_event_worker
 from backend.app.opportunities.generator import opportunity_generator
 from backend.app.decisions.engine import decision_engine
 from backend.app.outcomes.monitor import outcome_monitor
@@ -43,8 +45,10 @@ app.include_router(vault_router)
 async def startup_event():
     # 1. Launch real background event pipeline workers
     asyncio.create_task(market_simulator())
+    asyncio.create_task(market_event_worker())
     asyncio.create_task(opportunity_generator())
     asyncio.create_task(decision_engine.run_decision_worker())
+    asyncio.create_task(hardware_status_monitor())
 
     # 2. Start autonomous scenario loop
     demo_engine.start_autonomous()
@@ -63,6 +67,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 "market_tick": current_market_tick,
                 "price_history": market_price_history,
                 "market_interval": current_market_tick.get("interval_sec", 10.0),
+                "latest_market_news": (get_news_history() or [None])[0],
+                "market_news_history": get_news_history(),
+                "hardware_status": vault_lock_state.hardware_status_payload(),
                 "demo_state": {
                     "current_phase": demo_engine.current_phase,
                     "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
@@ -86,7 +93,7 @@ async def get_health():
         "backend_status": "ONLINE",
         "websocket_status": "LIVE" if len(broadcaster.active_connections) > 0 else "IDLE",
         "market_status": "ACTIVE",
-        "hardware_status": "OFFLINE",
+        "hardware_status": "ONLINE" if vault_lock_state.is_hardware_connected() else "OFFLINE",
         "agent_status": "RUNNING" if demo_engine.autonomous_mode else "IDLE",
         "current_phase": demo_engine.current_phase,
         "phase_name": PHASE_NAMES[demo_engine.current_phase - 1],
@@ -117,16 +124,21 @@ async def get_market_state():
 
 class InjectNewsRequest(BaseModel):
     headline: Optional[str] = "Apple raises Q3 guidance"
-    sentiment: Optional[str] = "positive"
+    asset: str = "AAPL"
+    source: Optional[str] = "Reuters (Simulated)"
+    sentiment: Literal["positive", "negative", "neutral"] = "positive"
     contradicts: Optional[str] = None
+    decision_id: Optional[str] = None
 
 @app.post("/api/market/inject-news")
 async def inject_news_endpoint(req: InjectNewsRequest):
     news_ev = await inject_news(
-        asset="AAPL",
+        asset=req.asset,
         headline=req.headline or "Apple corporate update",
-        sentiment=req.sentiment or "positive",
-        contradicts=req.contradicts
+        source=req.source or "Reuters (Simulated)",
+        sentiment=req.sentiment,
+        contradicts=req.contradicts,
+        decision_id=req.decision_id
     )
     return {"status": "INJECTED", "news": news_ev}
 

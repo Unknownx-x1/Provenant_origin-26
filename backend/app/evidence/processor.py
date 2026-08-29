@@ -10,6 +10,7 @@ class EvidenceProcessor:
         now = datetime.now(timezone.utc)
 
         if event_type == "price":
+            bullish = float(event.get("rsi", 64.2)) >= 50.0
             node = EvidenceNodeInternal(
                 id=f"ev_{uuid.uuid4().hex[:6]}",
                 type="momentum",
@@ -17,13 +18,16 @@ class EvidenceProcessor:
                 captured_at=now,
                 base_weight=0.25,
                 trust_score=trust_engine.get_source_trust("RSI_14"),
-                value=f"RSI {event.get('rsi', 64.2)} Bullish Momentum",
-                status="ACTIVE"
+                value=f"RSI {event.get('rsi', 64.2)} {'Bullish' if bullish else 'Bearish'} Momentum",
+                status="ACTIVE", asset=event.get("asset", "AAPL")
             )
             await event_bus.evidence_events.put(node)
             return node
 
         elif event_type == "orderbook":
+            bid_volume = event.get("bid_volume", 8500)
+            ask_volume = event.get("ask_volume", 4200)
+            imbalance = "Buyer" if bid_volume >= ask_volume else "Seller"
             node = EvidenceNodeInternal(
                 id=f"ev_{uuid.uuid4().hex[:6]}",
                 type="orderbook",
@@ -31,8 +35,8 @@ class EvidenceProcessor:
                 captured_at=now,
                 base_weight=0.25,
                 trust_score=trust_engine.get_source_trust("Depth Proxy"),
-                value=f"Bid/Ask Depth Proxy ({event.get('bid_volume', 8500)} / {event.get('ask_volume', 4200)})",
-                status="ACTIVE"
+                value=f"{imbalance} Imbalance ({bid_volume} / {ask_volume})",
+                status="ACTIVE", asset=event.get("asset", "AAPL")
             )
             await event_bus.evidence_events.put(node)
             return node
@@ -43,11 +47,11 @@ class EvidenceProcessor:
             source = event.get("source", "Reuters (Simulated)")
             confidence = event.get("confidence", 0.91)
             weight = event.get("weight", 0.35)
-            is_contradicted = bool(event.get("contradicts")) or (sentiment == "negative")
+            is_contradicted = bool(event.get("contradicts"))
 
             impact = event.get("impact")
             if not impact:
-                impact = "CONTRADICTS BUY AAPL" if is_contradicted else "SUPPORTS BUY AAPL"
+                impact = "CONTRADICTS BUY AAPL" if is_contradicted else ("SUPPORTS SELL AAPL" if sentiment == "negative" else "SUPPORTS BUY AAPL")
 
             status = "CONTRADICTED" if is_contradicted else "ACTIVE"
 
@@ -64,7 +68,7 @@ class EvidenceProcessor:
                 confidence=confidence,
                 impact=impact,
                 status=status,
-                value=f"{headline} ({status})"
+                value=f"{headline} ({status})", asset=event.get("asset", "AAPL")
             )
 
             if is_contradicted:

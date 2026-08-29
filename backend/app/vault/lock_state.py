@@ -1,4 +1,5 @@
 import time
+import asyncio
 from typing import Optional
 from backend.app.schemas.contracts import Experiment, ExperimentStatus, VaultState
 from backend.app.research_sleeve.experiment import experiment_manager
@@ -14,6 +15,12 @@ class VaultLockState:
     def is_hardware_connected(self) -> bool:
         # Physical device is considered CONNECTED only if polled within 5 seconds
         return (time.time() - self.last_hardware_heartbeat) < 5.0
+
+    def hardware_status_payload(self) -> dict:
+        return {
+            "connected": self.is_hardware_connected(),
+            "timeout_sec": 5,
+        }
 
     def check_lock(self, experiment_id: str) -> Optional[VaultState]:
         experiment = experiment_manager.update_countdown(experiment_id)
@@ -48,3 +55,19 @@ class VaultLockState:
         return False
 
 vault_lock_state = VaultLockState()
+
+
+async def hardware_status_monitor() -> None:
+    """Broadcast presence transitions without affecting Vault lock semantics."""
+    from backend.app.ws.broadcaster import broadcaster
+
+    previous_status = None
+    while True:
+        try:
+            status = vault_lock_state.hardware_status_payload()
+            if status["connected"] != previous_status:
+                await broadcaster.broadcast("HARDWARE_STATUS", status)
+                previous_status = status["connected"]
+            await asyncio.sleep(1.0)
+        except asyncio.CancelledError:
+            break

@@ -16,7 +16,7 @@ const BACKEND_URL = 'http://127.0.0.1:8000';
 
 export const DashboardShell: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview');
-  const { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, marketInterval, setMarketInterval, demoState } = useLiveFeed();
+  const { connected, decisions, triggers, experiments, strategyPool, marketTick, priceHistory, marketInterval, setMarketInterval, demoState, marketNewsHistory, hardwareStatus } = useLiveFeed();
 
   const speakText = (text: string) => {
     if ('speechSynthesis' in window && demoState.voice_enabled) {
@@ -134,6 +134,7 @@ export const DashboardShell: React.FC = () => {
             priceHistory={priceHistory}
             marketInterval={marketInterval}
             onSetMarketInterval={setMarketInterval}
+            marketNewsHistory={marketNewsHistory}
           />
         );
       case 'decisions':
@@ -148,6 +149,7 @@ export const DashboardShell: React.FC = () => {
             onCommit={handleCommit}
             onReveal={handleReveal}
             onSpeak={speakText}
+            hardwareStatus={hardwareStatus}
           />
         );
       case 'performance':
@@ -165,6 +167,7 @@ export const DashboardShell: React.FC = () => {
             onInjectPositiveNews={handleInjectPositiveNews}
             onInjectFailure={handleInjectContradiction}
             onSpeak={speakText}
+            marketNewsHistory={marketNewsHistory}
           />
         );
     }
@@ -186,6 +189,7 @@ export const DashboardShell: React.FC = () => {
         <Header
           demoState={demoState}
           connected={connected}
+          hardwareStatus={hardwareStatus}
           onToggleAuto={handleStartAuto}
         />
 

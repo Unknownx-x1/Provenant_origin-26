@@ -1,16 +1,18 @@
 import React from 'react';
 import { Play, Pause, Bell, Wifi, Cpu, ShieldCheck } from 'lucide-react';
-import { DemoState } from '../ws/useLiveFeed';
+import { DemoState, HardwareStatus } from '../ws/useLiveFeed';
 
 interface HeaderProps {
   demoState: DemoState;
   connected: boolean;
+  hardwareStatus: HardwareStatus;
   onToggleAuto: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   demoState,
   connected,
+  hardwareStatus,
   onToggleAuto
 }) => {
   return (
@@ -42,9 +44,11 @@ export const Header: React.FC<HeaderProps> = ({
         </span>
 
         {/* Hardware Truthful Presence Pill */}
-        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border font-mono bg-slate-100 text-slate-600 border-slate-200">
-          <Cpu className="w-3 h-3 text-slate-400" />
-          M5STICK: OFFLINE
+        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 border font-mono ${
+          hardwareStatus.connected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'
+        }`}>
+          <Cpu className={`w-3 h-3 ${hardwareStatus.connected ? 'text-emerald-600' : 'text-slate-400'}`} />
+          M5STICK: {hardwareStatus.connected ? 'ONLINE' : 'OFFLINE'}
         </span>
 
         {/* Vault Enforced Pill */}

@@ -15,6 +15,12 @@ export const ActivityFeedSidebar: React.FC<ActivityFeedSidebarProps> = ({
   currentPhase,
   onViewAll
 }) => {
+  const formatTimestamp = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return Number.isNaN(date.getTime()) ? timestamp : date.toLocaleTimeString([], {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  };
   const isVaultLocked = (currentPhase === 11 || latestExperiment?.status === 'LOCKED') && (latestExperiment?.seconds_remaining ?? 0) > 0;
   const remainingSec = latestExperiment?.seconds_remaining ?? 0;
 
@@ -77,7 +83,7 @@ export const ActivityFeedSidebar: React.FC<ActivityFeedSidebarProps> = ({
               return (
                 <div key={idx} className="space-y-1 font-sans text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-400 font-mono text-[11px] font-medium">{item.timestamp}</span>
+                    <span className="text-slate-400 font-mono text-[11px] font-medium">{formatTimestamp(item.timestamp)}</span>
                   </div>
                   <div>
                     <span className={`inline-block text-[10px] font-semibold px-2.5 py-0.5 rounded-full border mb-1 ${badge.bg}`}>

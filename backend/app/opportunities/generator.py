@@ -8,6 +8,22 @@ from backend.app.schemas.contracts import EvidenceNode, EvidenceType
 latest_evidence: Dict[str, Any] = {}
 opportunity_active: bool = False
 
+
+def determine_initial_action(nodes) -> tuple[str, float]:
+    """Deterministically derive direction from existing weighted evidence."""
+    directional_weight = 0.0
+    total_weight = 0.0
+    for node in nodes:
+        weight = float(getattr(node, "weight", 0.0))
+        text = f"{getattr(node, 'sentiment', '')} {getattr(node, 'value', '')} {getattr(node, 'impact', '')}".lower()
+        direction = 1 if any(word in text for word in ("positive", "bullish", "buyer", "supports buy")) else -1 if any(word in text for word in ("negative", "bearish", "seller", "supports sell")) else 0
+        directional_weight += weight * direction
+        total_weight += weight
+    strength = abs(directional_weight) / total_weight if total_weight else 0.0
+    if strength < 0.25:
+        return "HOLD", round(strength, 4)
+    return ("BUY" if directional_weight > 0 else "SELL"), round(strength, 4)
+
 def reset_opportunity_state():
     global opportunity_active, latest_evidence
     opportunity_active = False
@@ -37,10 +53,6 @@ async def opportunity_generator():
                 continue
 
             if all(k in latest_evidence for k in required_evidence):
-                news_evidence = latest_evidence["news"]
-                if getattr(news_evidence, "sentiment", "positive") != "positive" or getattr(news_evidence, "contradicted", False):
-                    continue
-
                 # Query active strategy pool (Closed-Loop Outer Loop Integration)
                 active_pool = strategy_pool_manager.get_active_pool()
                 active_strategy_id = "news_momentum_v1"
@@ -89,11 +101,16 @@ async def opportunity_generator():
                     freshness="FRESH"
                 ))
 
+                action, signal_strength = determine_initial_action(nodes)
+                if action == "HOLD":
+                    continue
+
                 opp_id = f"opp_{uuid.uuid4().hex[:6]}"
                 opportunity = {
                     "opportunity_id": opp_id,
-                    "asset": "AAPL",
-                    "action": "BUY",
+                    "asset": getattr(latest_evidence["news"], "asset", "AAPL"),
+                    "action": action,
+                    "signal_strength": signal_strength,
                     "evidence_nodes": nodes,
                     "strategy_template_id": active_strategy_id
                 }
